@@ -10,6 +10,22 @@ import ProtectedRoute from "./components/common/ProtectedRoute";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import StudentDashboard from "./pages/student/StudentDashboard";
 
+// Admin pages
+import MCQList from "./pages/admin/MCQList";
+import CreateMCQ from "./pages/admin/CreateMCQ";
+import EditMCQ from "./pages/admin/EditMCQ";
+import CourseList from "./pages/admin/CourseList";
+import CreateCourse from "./pages/admin/CreateCourse";
+import CourseDetails from "./pages/admin/CourseDetails";
+import ContestList from "./pages/admin/ContestList";
+import CreateContest from "./pages/admin/CreateContest";
+import ContestDetails from "./pages/admin/ContestDetails";
+import Results from "./pages/admin/Results";
+
+// Student pages
+import ContestTaking from "./pages/student/ContestTaking";
+import StudentResults from "./pages/student/StudentResults";
+
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
@@ -44,11 +60,79 @@ const AppRoutes = () => {
           <AdminDashboard />
         </ProtectedRoute>
       } />
+      
+      {/* MCQ Management Routes */}
+      <Route path="/admin/mcq" element={
+        <ProtectedRoute requireAdmin>
+          <MCQList />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/mcq/create" element={
+        <ProtectedRoute requireAdmin>
+          <CreateMCQ />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/mcq/edit/:id" element={
+        <ProtectedRoute requireAdmin>
+          <EditMCQ />
+        </ProtectedRoute>
+      } />
+
+      {/* Course Management Routes */}
+      <Route path="/admin/courses" element={
+        <ProtectedRoute requireAdmin>
+          <CourseList />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/courses/create" element={
+        <ProtectedRoute requireAdmin>
+          <CreateCourse />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/courses/:id" element={
+        <ProtectedRoute requireAdmin>
+          <CourseDetails />
+        </ProtectedRoute>
+      } />
+
+      {/* Contest Management Routes */}
+      <Route path="/admin/contests" element={
+        <ProtectedRoute requireAdmin>
+          <ContestList />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/contests/create" element={
+        <ProtectedRoute requireAdmin>
+          <CreateContest />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/contests/:id" element={
+        <ProtectedRoute requireAdmin>
+          <ContestDetails />
+        </ProtectedRoute>
+      } />
+
+      {/* Results Route */}
+      <Route path="/admin/results" element={
+        <ProtectedRoute requireAdmin>
+          <Results />
+        </ProtectedRoute>
+      } />
 
       {/* Student Routes */}
       <Route path="/student/dashboard" element={
         <ProtectedRoute requireStudent>
           <StudentDashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/student/contest/:id" element={
+        <ProtectedRoute requireStudent>
+          <ContestTaking />
+        </ProtectedRoute>
+      } />
+      <Route path="/student/results" element={
+        <ProtectedRoute requireStudent>
+          <StudentResults />
         </ProtectedRoute>
       } />
 
