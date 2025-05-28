@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -11,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, Save } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { apiService } from '../../services/api';
 
 interface MCQFormData {
   title: string;
@@ -22,34 +22,59 @@ interface MCQFormData {
   explanation?: string;
 }
 
+interface MCQData {
+  id: string;
+  title: string;
+  description: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_options: string[];
+  explanation?: string;
+}
+
 const EditMCQ = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [correctOptions, setCorrectOptions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<MCQFormData>();
 
   useEffect(() => {
-    // Load MCQ data - mock data for now
-    const mockMCQ = {
-      title: 'What is React?',
-      description: 'Choose the correct definition of React',
-      option_a: 'A JavaScript library',
-      option_b: 'A programming language',
-      option_c: 'A database',
-      option_d: 'An operating system',
-      correct_options: ['A'],
-      explanation: 'React is a JavaScript library for building user interfaces'
-    };
+    if (id) {
+      loadMCQData();
+    }
+  }, [id]);
 
-    setValue('title', mockMCQ.title);
-    setValue('description', mockMCQ.description);
-    setValue('option_a', mockMCQ.option_a);
-    setValue('option_b', mockMCQ.option_b);
-    setValue('option_c', mockMCQ.option_c);
-    setValue('option_d', mockMCQ.option_d);
-    setValue('explanation', mockMCQ.explanation);
-    setCorrectOptions(mockMCQ.correct_options);
-  }, [id, setValue]);
+  const loadMCQData = async () => {
+    if (!id) return;
+    
+    try {
+      setLoading(true);
+      const mcqData = await apiService.getMCQ(id) as MCQData;
+      
+      setValue('title', mcqData.title);
+      setValue('description', mcqData.description);
+      setValue('option_a', mcqData.option_a);
+      setValue('option_b', mcqData.option_b);
+      setValue('option_c', mcqData.option_c);
+      setValue('option_d', mcqData.option_d);
+      setValue('explanation', mcqData.explanation || '');
+      setCorrectOptions(mcqData.correct_options || []);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load MCQ data",
+        variant: "destructive"
+      });
+      console.error('Error loading MCQ data:', error);
+      navigate('/admin/mcq');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onSubmit = async (data: MCQFormData) => {
     if (correctOptions.length === 0) {
@@ -61,8 +86,16 @@ const EditMCQ = () => {
       return;
     }
 
+    if (!id) return;
+
     try {
-      console.log('Updating MCQ:', { ...data, correct_options: correctOptions });
+      setUpdating(true);
+      const updateData = {
+        ...data,
+        correct_options: correctOptions
+      };
+      
+      await apiService.updateMCQ(id, updateData);
       
       toast({
         title: "Success",
@@ -73,9 +106,11 @@ const EditMCQ = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to update MCQ",
+        description: error instanceof Error ? error.message : "Failed to update MCQ",
         variant: "destructive"
       });
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -86,6 +121,16 @@ const EditMCQ = () => {
       setCorrectOptions(correctOptions.filter(opt => opt !== option));
     }
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -207,12 +252,21 @@ const EditMCQ = () => {
               </div>
 
               <div className="flex justify-end space-x-4">
-                <Button type="button" variant="outline" onClick={() => navigate('/admin/mcq')}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => navigate('/admin/mcq')}
+                  disabled={updating}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" className="flex items-center space-x-2">
+                <Button 
+                  type="submit" 
+                  className="flex items-center space-x-2"
+                  disabled={updating}
+                >
                   <Save className="h-4 w-4" />
-                  <span>Update MCQ</span>
+                  <span>{updating ? 'Updating...' : 'Update MCQ'}</span>
                 </Button>
               </div>
             </form>

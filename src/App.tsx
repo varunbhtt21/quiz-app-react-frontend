@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +20,9 @@ import ContestList from "./pages/admin/ContestList";
 import CreateContest from "./pages/admin/CreateContest";
 import ContestDetails from "./pages/admin/ContestDetails";
 import Results from "./pages/admin/Results";
+import StudentList from "./pages/admin/StudentList";
+import CreateStudent from "./pages/admin/CreateStudent";
+import EnrollStudents from "./pages/admin/EnrollStudents";
 
 // Student pages
 import ContestTaking from "./pages/student/ContestTaking";
@@ -92,6 +94,23 @@ const AppRoutes = () => {
       <Route path="/admin/courses/:id" element={
         <ProtectedRoute requireAdmin>
           <CourseDetails />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/courses/:id/enroll" element={
+        <ProtectedRoute requireAdmin>
+          <EnrollStudents />
+        </ProtectedRoute>
+      } />
+
+      {/* Student Management Routes */}
+      <Route path="/admin/students" element={
+        <ProtectedRoute requireAdmin>
+          <StudentList />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/students/create" element={
+        <ProtectedRoute requireAdmin>
+          <CreateStudent />
         </ProtectedRoute>
       } />
 

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/common/Layout';
 import { Button } from '@/components/ui/button';
@@ -7,55 +6,80 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
+import { apiService } from '../../services/api';
 
 interface MCQProblem {
   id: string;
   title: string;
   description: string;
-  option_a: string;
-  option_b: string;
-  option_c: string;
-  option_d: string;
-  correct_options: string[];
-  explanation?: string;
   created_at: string;
-  updated_at: string;
 }
 
 const MCQList = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [mcqs] = useState<MCQProblem[]>([
-    {
-      id: '1',
-      title: 'What is React?',
-      description: 'Choose the correct definition of React',
-      option_a: 'A JavaScript library',
-      option_b: 'A programming language',
-      option_c: 'A database',
-      option_d: 'An operating system',
-      correct_options: ['A'],
-      created_at: '2024-01-15T10:00:00Z',
-      updated_at: '2024-01-15T10:00:00Z'
-    },
-    {
-      id: '2',
-      title: 'JavaScript Data Types',
-      description: 'Which of the following are primitive data types in JavaScript?',
-      option_a: 'String',
-      option_b: 'Number',
-      option_c: 'Object',
-      option_d: 'Boolean',
-      correct_options: ['A', 'B', 'D'],
-      created_at: '2024-01-14T15:30:00Z',
-      updated_at: '2024-01-14T15:30:00Z'
-    }
-  ]);
+  const [mcqs, setMcqs] = useState<MCQProblem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredMCQs = mcqs.filter(mcq =>
-    mcq.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    mcq.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  useEffect(() => {
+    loadMCQs();
+  }, []);
+
+  const loadMCQs = async () => {
+    try {
+      setLoading(true);
+      const data = await apiService.getMCQs(0, 100, searchTerm || undefined) as MCQProblem[];
+      setMcqs(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load MCQs",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadMCQs();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this MCQ?')) {
+      return;
+    }
+
+    try {
+      await apiService.deleteMCQ(id);
+      toast({
+        title: "Success",
+        description: "MCQ deleted successfully"
+      });
+      loadMCQs();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete MCQ",
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -82,49 +106,60 @@ const MCQList = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Correct Options</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredMCQs.map((mcq) => (
-                  <TableRow key={mcq.id}>
-                    <TableCell className="font-medium">{mcq.title}</TableCell>
-                    <TableCell>{mcq.description.substring(0, 50)}...</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-1">
-                        {mcq.correct_options.map((option) => (
-                          <span key={option} className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                            {option}
-                          </span>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>{new Date(mcq.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => navigate(`/admin/mcq/edit/${mcq.id}`)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            {mcqs.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">
+                  {searchTerm ? 'No MCQs match your search' : 'No MCQs created yet'}
+                </p>
+                {!searchTerm && (
+                  <Button 
+                    onClick={() => navigate('/admin/mcq/create')} 
+                    className="mt-4"
+                  >
+                    Create Your First MCQ
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {mcqs.map((mcq) => (
+                    <TableRow key={mcq.id}>
+                      <TableCell className="font-medium">{mcq.title}</TableCell>
+                      <TableCell className="max-w-md truncate">{mcq.description}</TableCell>
+                      <TableCell>{new Date(mcq.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/admin/mcq/edit/${mcq.id}`)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDelete(mcq.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

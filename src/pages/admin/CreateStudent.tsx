@@ -7,46 +7,58 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Save, Home, ChevronRight, BookOpen, Info } from 'lucide-react';
+import { ArrowLeft, Save, Home, ChevronRight, User, Info } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 
-interface CourseFormData {
-  name: string;
-  description: string;
+interface StudentFormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
 }
 
-const CreateCourse = () => {
+const CreateStudent = () => {
   const navigate = useNavigate();
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<CourseFormData>();
+  const { register, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm<StudentFormData>();
 
-  const onSubmit = async (data: CourseFormData) => {
+  const password = watch('password');
+
+  const onSubmit = async (data: StudentFormData) => {
+    if (data.password !== data.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      await apiService.createCourse(data);
+      await apiService.createStudent({
+        email: data.email,
+        password: data.password
+      });
       
       toast({
         title: "Success",
-        description: "Course created successfully! You can now add students and create contests for this course."
+        description: "Student created successfully! They can now be enrolled in courses."
       });
       
-      navigate('/admin/courses');
+      navigate('/admin/students');
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create course",
+        description: error instanceof Error ? error.message : "Failed to create student",
         variant: "destructive"
       });
     }
   };
 
   const handleBack = () => {
-    // Check if there's history to go back to
     if (window.history.length > 1) {
       navigate(-1);
     } else {
-      // Fallback to dashboard if no history
-      navigate('/admin/dashboard');
+      navigate('/admin/students');
     }
   };
 
@@ -68,13 +80,13 @@ const CreateCourse = () => {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => navigate('/admin/courses')}
+            onClick={() => navigate('/admin/students')}
             className="p-0 h-auto font-normal"
           >
-            Courses
+            Students
           </Button>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-gray-900 font-medium">Create Course</span>
+          <span className="text-gray-900 font-medium">Create Student</span>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -82,8 +94,8 @@ const CreateCourse = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Create New Course</h1>
-            <p className="text-gray-600">Set up a course to organize students and content</p>
+            <h1 className="text-3xl font-bold">Create New Student</h1>
+            <p className="text-gray-600">Add a new student account to the system</p>
           </div>
         </div>
 
@@ -92,27 +104,27 @@ const CreateCourse = () => {
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-blue-900">
               <Info className="h-5 w-5" />
-              <span>What is a Course?</span>
+              <span>About Student Accounts</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <h4 className="font-semibold text-blue-900 mb-2">Purpose:</h4>
+                <h4 className="font-semibold text-blue-900 mb-2">Student Account Features:</h4>
                 <ul className="space-y-1 text-blue-800">
-                  <li>• Organize students into groups</li>
-                  <li>• Create subject-specific contests</li>
-                  <li>• Track course-level performance</li>
-                  <li>• Manage enrollments efficiently</li>
+                  <li>• Can be enrolled in multiple courses</li>
+                  <li>• Access to course-specific contests</li>
+                  <li>• View their own results and progress</li>
+                  <li>• Secure login with email and password</li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-semibold text-blue-900 mb-2">Examples:</h4>
+                <h4 className="font-semibold text-blue-900 mb-2">After Creating:</h4>
                 <ul className="space-y-1 text-blue-800">
-                  <li>• "Introduction to Programming"</li>
-                  <li>• "Advanced Mathematics"</li>
-                  <li>• "Web Development Bootcamp"</li>
-                  <li>• "Data Science Fundamentals"</li>
+                  <li>• Student will appear in the Students list</li>
+                  <li>• Can be enrolled in courses from course details</li>
+                  <li>• Student can login and access their dashboard</li>
+                  <li>• Account can be activated/deactivated as needed</li>
                 </ul>
               </div>
             </div>
@@ -122,75 +134,96 @@ const CreateCourse = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <BookOpen className="h-5 w-5 text-blue-600" />
-              <span>Course Details</span>
+              <User className="h-5 w-5 text-blue-600" />
+              <span>Student Details</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
-                  <Label htmlFor="name">Course Name *</Label>
-                  <HelpTooltip content="Choose a clear, descriptive name that students will easily recognize. Examples: 'Python Programming', 'Calculus I', 'Digital Marketing'" />
+                  <Label htmlFor="email">Email Address *</Label>
+                  <HelpTooltip content="Student's email address will be used for login. Must be unique in the system." />
                 </div>
                 <Input
-                  id="name"
-                  {...register('name', { 
-                    required: 'Course name is required',
-                    minLength: { value: 3, message: 'Course name must be at least 3 characters' },
-                    maxLength: { value: 100, message: 'Course name must be less than 100 characters' }
+                  id="email"
+                  type="email"
+                  {...register('email', { 
+                    required: 'Email is required',
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: 'Invalid email address'
+                    }
                   })}
-                  placeholder="e.g., Introduction to Programming"
+                  placeholder="e.g., student@example.com"
                 />
-                {errors.name && (
-                  <p className="text-sm text-red-600">{errors.name.message}</p>
+                {errors.email && (
+                  <p className="text-sm text-red-600">{errors.email.message}</p>
                 )}
                 <p className="text-xs text-gray-500">
-                  This will be displayed to students when they view available courses
+                  This email will be used for student login and communications
                 </p>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
-                  <Label htmlFor="description">Course Description *</Label>
-                  <HelpTooltip content="Provide a detailed description of what this course covers. This helps students understand what they'll learn and helps you organize content." />
+                  <Label htmlFor="password">Password *</Label>
+                  <HelpTooltip content="Create a secure password for the student. They can change it later from their profile." />
                 </div>
-                <Textarea
-                  id="description"
-                  {...register('description', { 
-                    required: 'Description is required',
-                    minLength: { value: 10, message: 'Description must be at least 10 characters' },
-                    maxLength: { value: 500, message: 'Description must be less than 500 characters' }
+                <Input
+                  id="password"
+                  type="password"
+                  {...register('password', { 
+                    required: 'Password is required',
+                    minLength: { value: 6, message: 'Password must be at least 6 characters' }
                   })}
-                  placeholder="e.g., Learn the fundamentals of programming including variables, loops, functions, and basic algorithms. Perfect for beginners with no prior coding experience."
-                  rows={4}
+                  placeholder="Enter password"
                 />
-                {errors.description && (
-                  <p className="text-sm text-red-600">{errors.description.message}</p>
+                {errors.password && (
+                  <p className="text-sm text-red-600">{errors.password.message}</p>
                 )}
                 <p className="text-xs text-gray-500">
-                  Describe the course objectives, target audience, and what students will learn
+                  Minimum 6 characters. Student can change this later.
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <HelpTooltip content="Re-enter the password to confirm it's correct." />
+                </div>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  {...register('confirmPassword', { 
+                    required: 'Please confirm the password',
+                    validate: value => value === password || 'Passwords do not match'
+                  })}
+                  placeholder="Confirm password"
+                />
+                {errors.confirmPassword && (
+                  <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>
+                )}
               </div>
 
               {/* Next Steps Preview */}
               <Card className="bg-gray-50">
                 <CardHeader>
-                  <CardTitle className="text-lg">After Creating This Course</CardTitle>
+                  <CardTitle className="text-lg">After Creating This Student</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-sm">
                     <div className="flex items-center space-x-3">
                       <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">1</div>
-                      <span>Add students to this course by going to the course details page</span>
+                      <span>Student will appear in the Students list with "Active" status</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">2</div>
-                      <span>Create MCQ questions for assessments in the Question Bank</span>
+                      <span>Enroll student in courses from the course details pages</span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">3</div>
-                      <span>Schedule quiz contests for this course using your questions</span>
+                      <span>Student can login and participate in course contests</span>
                     </div>
                   </div>
                 </CardContent>
@@ -211,7 +244,7 @@ const CreateCourse = () => {
                   disabled={isSubmitting}
                 >
                   <Save className="h-4 w-4" />
-                  <span>{isSubmitting ? 'Creating Course...' : 'Create Course'}</span>
+                  <span>{isSubmitting ? 'Creating Student...' : 'Create Student'}</span>
                 </Button>
               </div>
             </form>
@@ -222,4 +255,4 @@ const CreateCourse = () => {
   );
 };
 
-export default CreateCourse;
+export default CreateStudent; 

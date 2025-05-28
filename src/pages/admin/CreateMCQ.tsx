@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -9,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Home, ChevronRight } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { apiService } from '../../services/api';
 
 interface MCQFormData {
   title: string;
@@ -25,7 +25,7 @@ interface MCQFormData {
 const CreateMCQ = () => {
   const navigate = useNavigate();
   const [correctOptions, setCorrectOptions] = useState<string[]>([]);
-  const { register, handleSubmit, formState: { errors } } = useForm<MCQFormData>();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<MCQFormData>();
 
   const onSubmit = async (data: MCQFormData) => {
     if (correctOptions.length === 0) {
@@ -38,8 +38,12 @@ const CreateMCQ = () => {
     }
 
     try {
-      // API call would go here
-      console.log('Creating MCQ:', { ...data, correct_options: correctOptions });
+      const mcqData = {
+        ...data,
+        correct_options: correctOptions
+      };
+      
+      await apiService.createMCQ(mcqData);
       
       toast({
         title: "Success",
@@ -50,7 +54,7 @@ const CreateMCQ = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to create MCQ",
+        description: error instanceof Error ? error.message : "Failed to create MCQ",
         variant: "destructive"
       });
     }
@@ -64,11 +68,45 @@ const CreateMCQ = () => {
     }
   };
 
+  const handleBack = () => {
+    // Check if there's history to go back to
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      // Fallback to dashboard if no history
+      navigate('/admin/dashboard');
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/admin/dashboard')}
+            className="p-0 h-auto font-normal"
+          >
+            <Home className="h-4 w-4 mr-1" />
+            Dashboard
+          </Button>
+          <ChevronRight className="h-4 w-4" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/admin/mcq')}
+            className="p-0 h-auto font-normal"
+          >
+            MCQs
+          </Button>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-gray-900 font-medium">Create MCQ</span>
+        </div>
+
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => navigate('/admin/mcq')}>
+          <Button variant="outline" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-3xl font-bold">Create New MCQ</h1>
@@ -184,12 +222,21 @@ const CreateMCQ = () => {
               </div>
 
               <div className="flex justify-end space-x-4">
-                <Button type="button" variant="outline" onClick={() => navigate('/admin/mcq')}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleBack}
+                  disabled={isSubmitting}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" className="flex items-center space-x-2">
+                <Button 
+                  type="submit" 
+                  className="flex items-center space-x-2"
+                  disabled={isSubmitting}
+                >
                   <Save className="h-4 w-4" />
-                  <span>Create MCQ</span>
+                  <span>{isSubmitting ? 'Creating...' : 'Create MCQ'}</span>
                 </Button>
               </div>
             </form>
