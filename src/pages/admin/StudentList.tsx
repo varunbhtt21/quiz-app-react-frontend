@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/common/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, Users, UserCheck, UserX, Home, ChevronRight } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Users, UserCheck, UserX, Home, ChevronRight, Filter, Download, RefreshCw, Calendar, Mail, Activity, TrendingUp, Upload, FileSpreadsheet, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 
@@ -17,28 +18,49 @@ interface Student {
   updated_at: string;
 }
 
+interface ImportResult {
+  total_rows: number;
+  successful: number;
+  failed: number;
+  errors: string[];
+  created_students: { id: string; email: string }[];
+}
+
 const StudentList = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [showImportResult, setShowImportResult] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     loadStudents();
   }, []);
 
   useEffect(() => {
-    // Filter students based on search term
-    if (searchTerm.trim() === '') {
-      setFilteredStudents(students);
-    } else {
-      const filtered = students.filter(student =>
+    // Filter students based on search term and status
+    let filtered = students;
+    
+    if (searchTerm.trim() !== '') {
+      filtered = filtered.filter(student =>
         student.email.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      setFilteredStudents(filtered);
     }
-  }, [students, searchTerm]);
+    
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(student => 
+        statusFilter === 'active' ? student.is_active : !student.is_active
+      );
+    }
+    
+    setFilteredStudents(filtered);
+  }, [students, searchTerm, statusFilter]);
 
   const loadStudents = async () => {
     try {
@@ -95,8 +117,92 @@ const StudentList = () => {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await apiService.downloadStudentTemplate();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `student_import_template_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "CSV template downloaded successfully"
+      });
+      
+      // Show instructions after successful download
+      setShowInstructions(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download template",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleBulkImport(file);
+    }
+  };
+
+  const handleBulkImport = async (file: File) => {
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
+      toast({
+        title: "Error",
+        description: "Please select a CSV file (.csv)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setImporting(true);
+      const result = await apiService.bulkImportStudents(file) as ImportResult;
+      setImportResult(result);
+      setShowImportResult(true);
+      
+      if (result.successful > 0) {
+        loadStudents(); // Refresh the student list
+        toast({
+          title: "Import Completed",
+          description: `Successfully imported ${result.successful} students${result.failed > 0 ? ` (${result.failed} failed)` : ''}`
+        });
+      } else {
+        toast({
+          title: "Import Failed",
+          description: "No students were imported. Please check the file format and data.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to import students",
+        variant: "destructive"
+      });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const activeStudents = students.filter(s => s.is_active).length;
   const inactiveStudents = students.filter(s => s.is_active === false).length;
+  const recentStudents = students.filter(s => {
+    const createdDate = new Date(s.created_at);
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return createdDate > weekAgo;
+  }).length;
 
   if (loading) {
     return (
@@ -110,163 +216,666 @@ const StudentList = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Breadcrumb Navigation */}
-        <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => navigate('/admin/dashboard')}
-            className="p-0 h-auto font-normal"
-          >
-            <Home className="h-4 w-4 mr-1" />
-            Dashboard
-          </Button>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-gray-900 font-medium">Students</span>
-        </div>
-
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Student Management</h1>
-            <p className="text-gray-600">Manage all student accounts in the system</p>
+      <div className="space-y-8">
+        {/* Enhanced Header */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-2xl p-8 text-white">
+          <div className="absolute inset-0 bg-black/10"></div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center space-x-2 mb-2">
+                  <Users className="h-8 w-8" />
+                  <h1 className="text-4xl font-bold">👥 Student Management</h1>
+                </div>
+                <p className="text-blue-100 text-lg mb-4">
+                  Manage student accounts, track enrollment, and monitor activity
+                </p>
+                <div className="flex items-center space-x-4">
+                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+                    <Activity className="h-3 w-3 mr-1" />
+                    {students.length} Total Students
+                  </Badge>
+                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    {recentStudents} New This Week
+                  </Badge>
+                </div>
+              </div>
+              <div className="hidden md:block">
+                <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center">
+                  <Users className="h-16 w-16 text-blue-200" />
+                </div>
+              </div>
+            </div>
           </div>
-          <Button onClick={() => navigate('/admin/students/create')} className="flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>Add New Student</span>
-          </Button>
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
+        {/* Enhanced Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <Users className="h-8 w-8 text-blue-600" />
+              <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-blue-600">{students.length}</div>
-                  <p className="text-sm text-gray-500">Total Students</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Total Students</p>
+                  <p className="text-3xl font-bold text-gray-900">{students.length}</p>
+                  <p className="text-xs text-gray-500">All registered students</p>
+                </div>
+                <div className="p-3 rounded-xl bg-blue-50">
+                  <Users className="h-6 w-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          
+          <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <UserCheck className="h-8 w-8 text-green-600" />
+              <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-green-600">{activeStudents}</div>
-                  <p className="text-sm text-gray-500">Active Students</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Active Students</p>
+                  <p className="text-3xl font-bold text-green-600">{activeStudents}</p>
+                  <p className="text-xs text-gray-500">Currently enrolled</p>
+                </div>
+                <div className="p-3 rounded-xl bg-green-50">
+                  <UserCheck className="h-6 w-6 text-green-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          
+          <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
             <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <UserX className="h-8 w-8 text-red-600" />
+              <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-red-600">{inactiveStudents}</div>
-                  <p className="text-sm text-gray-500">Inactive Students</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Inactive Students</p>
+                  <p className="text-3xl font-bold text-red-600">{inactiveStudents}</p>
+                  <p className="text-xs text-gray-500">Suspended accounts</p>
+                </div>
+                <div className="p-3 rounded-xl bg-red-50">
+                  <UserX className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">New This Week</p>
+                  <p className="text-3xl font-bold text-purple-600">{recentStudents}</p>
+                  <p className="text-xs text-gray-500">Recent registrations</p>
+                </div>
+                <div className="p-3 rounded-xl bg-purple-50">
+                  <Calendar className="h-6 w-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search and Filter */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Students</CardTitle>
+        {/* Enhanced Search and Actions */}
+        <Card className="shadow-lg border-0">
+          <CardHeader className="border-b bg-gray-50">
+            <div className="flex flex-col space-y-4 md:flex-row md:justify-between md:items-center md:space-y-0">
+              <div>
+                <CardTitle className="text-xl">📋 All Students</CardTitle>
+                <p className="text-gray-600 text-sm mt-1">Manage and monitor student accounts</p>
+              </div>
+              <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3">
+                <Button 
+                  variant="outline" 
+                  onClick={loadStudents}
+                  className="hover:bg-blue-50 hover:border-blue-300 w-full sm:w-auto"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <span className="sm:hidden">Refresh Data</span>
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={handleDownloadTemplate}
+                  className="hover:bg-green-50 hover:border-green-300 w-full sm:w-auto"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  <span className="sm:hidden">CSV Template</span>
+                  <span className="hidden sm:inline">Download CSV Template</span>
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing}
+                  className="hover:bg-purple-50 hover:border-purple-300 w-full sm:w-auto"
+                >
+                  {importing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      <span className="sm:hidden">Import Students</span>
+                      <span className="hidden sm:inline">Bulk Import</span>
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={() => navigate('/admin/students/create')} 
+                  className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  <span className="sm:hidden">New Student</span>
+                  <span className="hidden sm:inline">Add Student</span>
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-4 mb-6">
+          <CardContent className="p-6">
+            {/* Enhanced Search and Filter Bar */}
+            <div className="flex flex-col space-y-4 mb-6">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Search students by email..."
+                  placeholder="Search students by email address..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-11"
                 />
               </div>
-              <Button variant="outline" onClick={loadStudents}>
-                Refresh
-              </Button>
+              <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3">
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">Status:</span>
+                </div>
+                <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-1">
+                  <Button
+                    size="sm"
+                    variant={statusFilter === 'all' ? 'default' : 'outline'}
+                    onClick={() => setStatusFilter('all')}
+                    className="h-9 w-full sm:w-auto"
+                  >
+                    All ({students.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={statusFilter === 'active' ? 'default' : 'outline'}
+                    onClick={() => setStatusFilter('active')}
+                    className="h-9 w-full sm:w-auto"
+                  >
+                    Active ({activeStudents})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={statusFilter === 'inactive' ? 'default' : 'outline'}
+                    onClick={() => setStatusFilter('inactive')}
+                    className="h-9 w-full sm:w-auto"
+                  >
+                    Inactive ({inactiveStudents})
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Results Summary */}
+            <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 mb-4 p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Users className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">
+                  Showing {filteredStudents.length} of {students.length} students
+                </span>
+              </div>
+              {(searchTerm || statusFilter !== 'all') && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('all');
+                  }}
+                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 w-full sm:w-auto"
+                >
+                  Clear filters
+                </Button>
+              )}
             </div>
 
             {filteredStudents.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">
-                  {searchTerm ? 'No students found matching your search' : 'No students found'}
+              <div className="text-center py-16">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Users className="h-12 w-12 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-3">
+                  {searchTerm || statusFilter !== 'all' ? 'No students found' : 'No students yet'}
+                </h3>
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                  {searchTerm || statusFilter !== 'all' 
+                    ? 'Try adjusting your search terms or filters to find what you\'re looking for.' 
+                    : 'Get started by creating your first student account to begin managing enrollments.'
+                  }
                 </p>
-                <p className="text-sm text-gray-400 mt-2">
-                  {searchTerm ? 'Try adjusting your search terms' : 'Create your first student to get started'}
-                </p>
+                {!searchTerm && statusFilter === 'all' && (
+                  <Button 
+                    onClick={() => navigate('/admin/students/create')}
+                    className="px-6"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Student
+                  </Button>
+                )}
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Last Updated</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            ) :
+              // Mobile Card View for small screens, Table for larger screens
+              <>
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
                   {filteredStudents.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell className="font-medium">{student.email}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          student.is_active 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {student.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500">
-                        {new Date(student.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-sm text-gray-500">
-                        {new Date(student.updated_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
+                    <Card key={student.id} className="border border-gray-200 hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold text-sm">
+                                {student.email.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 text-sm">{student.email}</p>
+                              <p className="text-xs text-gray-500">ID: {student.id.slice(0, 8)}...</p>
+                            </div>
+                          </div>
+                          <Badge 
+                            className={`${
+                              student.is_active 
+                                ? 'bg-green-100 text-green-800 border-green-200' 
+                                : 'bg-red-100 text-red-800 border-red-200'
+                            } border font-medium text-xs`}
+                          >
+                            {student.is_active ? (
+                              <>
+                                <UserCheck className="h-2 w-2 mr-1" />
+                                Active
+                              </>
+                            ) : (
+                              <>
+                                <UserX className="h-2 w-2 mr-1" />
+                                Inactive
+                              </>
+                            )}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 mb-3 text-xs">
+                          <div>
+                            <div className="flex items-center text-gray-600 mb-1">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              Registered
+                            </div>
+                            <div className="text-gray-900">
+                              {new Date(student.created_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center text-gray-600 mb-1">
+                              <Activity className="h-3 w-3 mr-1" />
+                              Last Activity
+                            </div>
+                            <div className="text-gray-900">
+                              {new Date(student.updated_at).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => navigate(`/admin/students/${student.id}/edit`)}
+                            className="flex-1 hover:bg-blue-50 hover:border-blue-300"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
                           </Button>
                           <Button
                             size="sm"
-                            variant={student.is_active ? "secondary" : "default"}
+                            variant={student.is_active ? "outline" : "default"}
                             onClick={() => handleToggleStatus(student.id, student.is_active)}
+                            className={`flex-1 ${student.is_active 
+                              ? "hover:bg-orange-50 hover:border-orange-300 text-orange-600" 
+                              : "hover:bg-green-700 bg-green-600"
+                            }`}
                           >
-                            {student.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                            {student.is_active ? (
+                              <>
+                                <UserX className="h-3 w-3 mr-1" />
+                                Suspend
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="h-3 w-3 mr-1" />
+                                Activate
+                              </>
+                            )}
                           </Button>
                           <Button
                             size="sm"
-                            variant="destructive"
+                            variant="outline"
                             onClick={() => handleDeleteStudent(student.id, student.email)}
+                            className="hover:bg-red-50 hover:border-red-300 text-red-600"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </CardContent>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
-            )}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-hidden rounded-lg border border-gray-200">
+                  <Table>
+                    <TableHeader className="bg-gray-50">
+                      <TableRow>
+                        <TableHead className="font-semibold">Student</TableHead>
+                        <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold">Registration</TableHead>
+                        <TableHead className="font-semibold">Last Activity</TableHead>
+                        <TableHead className="font-semibold text-center">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredStudents.map((student) => (
+                        <TableRow key={student.id} className="hover:bg-gray-50 transition-colors">
+                          <TableCell>
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-semibold text-sm">
+                                  {student.email.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{student.email}</p>
+                                <p className="text-sm text-gray-500">Student ID: {student.id.slice(0, 8)}...</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              className={`${
+                                student.is_active 
+                                  ? 'bg-green-100 text-green-800 border-green-200' 
+                                  : 'bg-red-100 text-red-800 border-red-200'
+                              } border font-medium`}
+                            >
+                              {student.is_active ? (
+                                <>
+                                  <UserCheck className="h-3 w-3 mr-1" />
+                                  Active
+                                </>
+                              ) : (
+                                <>
+                                  <UserX className="h-3 w-3 mr-1" />
+                                  Inactive
+                                </>
+                              )}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <div className="flex items-center text-gray-900">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {new Date(student.created_at).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {new Date(student.created_at).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              <div className="flex items-center text-gray-900">
+                                <Activity className="h-3 w-3 mr-1" />
+                                {new Date(student.updated_at).toLocaleDateString()}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {new Date(student.updated_at).toLocaleTimeString()}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => navigate(`/admin/students/${student.id}/edit`)}
+                                className="hover:bg-blue-50 hover:border-blue-300"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={student.is_active ? "outline" : "default"}
+                                onClick={() => handleToggleStatus(student.id, student.is_active)}
+                                className={student.is_active 
+                                  ? "hover:bg-orange-50 hover:border-orange-300 text-orange-600" 
+                                  : "hover:bg-green-700 bg-green-600"
+                                }
+                              >
+                                {student.is_active ? <UserX className="h-3 w-3" /> : <UserCheck className="h-3 w-3" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteStudent(student.id, student.email)}
+                                className="hover:bg-red-50 hover:border-red-300 text-red-600"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
+            }
           </CardContent>
         </Card>
+
+        {/* Import Results Modal */}
+        {showImportResult && importResult && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
+              <CardHeader className="border-b">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    {importResult.successful > 0 ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-red-600" />
+                    )}
+                    <span>Import Results</span>
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowImportResult(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 overflow-y-auto">
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{importResult.total_rows}</div>
+                    <div className="text-sm text-blue-800">Total Rows</div>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{importResult.successful}</div>
+                    <div className="text-sm text-green-800">Successful</div>
+                  </div>
+                  <div className="text-center p-4 bg-red-50 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">{importResult.failed}</div>
+                    <div className="text-sm text-red-800">Failed</div>
+                  </div>
+                </div>
+
+                {/* Successfully Created Students */}
+                {importResult.created_students.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-green-800 mb-3 flex items-center">
+                      <CheckCircle className="h-5 w-5 mr-2" />
+                      Successfully Created Students ({importResult.created_students.length})
+                    </h3>
+                    <div className="bg-green-50 rounded-lg p-4 max-h-40 overflow-y-auto">
+                      {importResult.created_students.map((student, index) => (
+                        <div key={student.id} className="flex items-center justify-between py-2 border-b border-green-200 last:border-b-0">
+                          <span className="text-green-800">{student.email}</span>
+                          <Badge className="bg-green-100 text-green-800">Created</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Errors */}
+                {importResult.errors.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-red-800 mb-3 flex items-center">
+                      <AlertCircle className="h-5 w-5 mr-2" />
+                      Errors ({importResult.errors.length})
+                    </h3>
+                    <div className="bg-red-50 rounded-lg p-4 max-h-40 overflow-y-auto">
+                      {importResult.errors.map((error, index) => (
+                        <div key={index} className="py-2 border-b border-red-200 last:border-b-0">
+                          <span className="text-red-800 text-sm">{error}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Instructions for next steps */}
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 mb-2">Next Steps:</h4>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Successfully imported students can now be enrolled in courses</li>
+                    <li>• Review and fix any errors in your CSV file before re-importing</li>
+                    <li>• Students will receive their login credentials via email (if configured)</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* CSV Instructions Modal */}
+        {showInstructions && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
+              <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-green-50">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                    <span>CSV Import Instructions</span>
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowInstructions(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6 overflow-y-auto">
+                <div className="space-y-6">
+                  {/* Step-by-step instructions */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                      <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
+                      How to Use the CSV Template
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                        <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
+                        <div>
+                          <p className="font-medium text-blue-900">Open the downloaded CSV file</p>
+                          <p className="text-sm text-blue-700">The file contains sample data to show the expected format</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
+                        <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
+                        <div>
+                          <p className="font-medium text-green-900">Replace sample data with real student information</p>
+                          <p className="text-sm text-green-700">Keep the column headers (email, password) unchanged</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3 p-3 bg-purple-50 rounded-lg">
+                        <div className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
+                        <div>
+                          <p className="font-medium text-purple-900">Save and upload the file</p>
+                          <p className="text-sm text-purple-700">Use the "Bulk Import" button to upload your completed file</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Requirements */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-yellow-800 mb-2 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      Requirements
+                    </h4>
+                    <ul className="text-sm text-yellow-700 space-y-1">
+                      <li>• <strong>Email:</strong> Must be valid email addresses (contain @ and .)</li>
+                      <li>• <strong>Password:</strong> Minimum 6 characters long</li>
+                      <li>• <strong>Format:</strong> Save as .csv file format</li>
+                      <li>• <strong>Headers:</strong> Do not modify column names (email, password)</li>
+                    </ul>
+                  </div>
+
+                  {/* Tips */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-800 mb-2">💡 Tips for Success</h4>
+                    <ul className="text-sm text-green-700 space-y-1">
+                      <li>• Remove all sample data before adding real student information</li>
+                      <li>• Each row represents one student</li>
+                      <li>• Duplicate emails will be automatically skipped</li>
+                      <li>• You can add as many students as needed</li>
+                      <li>• Use spreadsheet software like Excel, Google Sheets, or any text editor</li>
+                    </ul>
+                  </div>
+
+                  {/* Sample format */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-800 mb-2">📋 Expected Format</h4>
+                    <div className="bg-white p-3 rounded border font-mono text-sm">
+                      <div className="font-bold border-b pb-1 mb-2">email,password</div>
+                      <div>john.doe@university.edu,securepass123</div>
+                      <div>jane.smith@university.edu,mypassword456</div>
+                      <div>mike.wilson@university.edu,strongpass789</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </Layout>
   );

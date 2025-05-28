@@ -118,6 +118,38 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async downloadMCQTemplate(): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/mcq/template/download`, {
+      headers: this.getHeaders(),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    return response.blob();
+  }
+
+  async bulkImportMCQs(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const token = localStorage.getItem('access_token');
+    const headers: HeadersInit = {};
+    
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/mcq/bulk-import`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    
+    return this.handleResponse(response);
+  }
+
   // Course Management
   async getCourses(skip = 0, limit = 100) {
     const params = new URLSearchParams({
@@ -202,6 +234,16 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async updateContest(id: string, data: any) {
+    const response = await fetch(`${API_BASE_URL}/contests/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    return this.handleResponse(response);
+  }
+
   async submitContest(contestId: string, answers: Record<string, string[]>, timeTaken?: number) {
     const response = await fetch(`${API_BASE_URL}/contests/${contestId}/submit`, {
       method: 'POST',
@@ -233,11 +275,22 @@ class ApiService {
 
   // Results Management
   async getContestResults(contestId: string) {
-    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/results`, {
+    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/submissions`, {
       headers: this.getHeaders(),
     });
     
-    return this.handleResponse(response);
+    const data = await this.handleResponse(response) as any;
+    
+    // Extract submissions array from the response and format for Results component
+    return data.submissions.map((submission: any) => ({
+      id: submission.id,
+      student_email: submission.student_email,
+      score: submission.total_score,
+      max_score: submission.max_possible_score,
+      percentage: submission.percentage,
+      submitted_at: submission.submitted_at,
+      time_taken_seconds: submission.time_taken_seconds
+    }));
   }
 
   // Export
@@ -325,6 +378,82 @@ class ApiService {
     const response = await fetch(`${API_BASE_URL}/courses/${courseId}/students/${studentId}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  // Get all submissions for current student
+  async getMySubmissions() {
+    try {
+      // First get all contests the student has access to
+      const contests = await this.getContests() as any[];
+      
+      // Then get submissions for each contest
+      const submissions = [];
+      for (const contest of contests) {
+        try {
+          const submission = await this.getMySubmission(contest.id) as any;
+          
+          // Get course name
+          let courseName = 'Unknown Course';
+          try {
+            const course = await this.getCourse(contest.course_id) as { name: string };
+            courseName = course.name;
+          } catch (error) {
+            // Course name fetch failed, use default
+          }
+          
+          submissions.push({
+            id: submission.id,
+            contest_id: submission.contest_id,
+            student_id: submission.student_id,
+            total_score: submission.total_score,
+            max_possible_score: submission.max_possible_score,
+            submitted_at: submission.submitted_at,
+            time_taken_seconds: submission.time_taken_seconds,
+            is_auto_submitted: submission.is_auto_submitted,
+            contest_name: contest.name,
+            course_name: courseName,
+            percentage: submission.max_possible_score > 0 
+              ? (submission.total_score / submission.max_possible_score * 100) 
+              : 0
+          });
+        } catch (error) {
+          // Student hasn't submitted for this contest, skip
+          continue;
+        }
+      }
+      
+      return submissions;
+    } catch (error) {
+      console.error('Error fetching student submissions:', error);
+      throw error;
+    }
+  }
+
+  async downloadStudentTemplate(): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/students/template/download`, {
+      headers: this.getHeaders(),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    return response.blob();
+  }
+
+  async bulkImportStudents(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${API_BASE_URL}/students/bulk-import`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+      },
+      body: formData,
     });
     
     return this.handleResponse(response);

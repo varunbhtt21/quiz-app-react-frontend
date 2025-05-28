@@ -18,6 +18,7 @@ import CreateCourse from "./pages/admin/CreateCourse";
 import CourseDetails from "./pages/admin/CourseDetails";
 import ContestList from "./pages/admin/ContestList";
 import CreateContest from "./pages/admin/CreateContest";
+import EditContest from "./pages/admin/EditContest";
 import ContestDetails from "./pages/admin/ContestDetails";
 import Results from "./pages/admin/Results";
 import StudentList from "./pages/admin/StudentList";
@@ -123,6 +124,11 @@ const AppRoutes = () => {
       <Route path="/admin/contests/create" element={
         <ProtectedRoute requireAdmin>
           <CreateContest />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/contests/edit/:id" element={
+        <ProtectedRoute requireAdmin>
+          <EditContest />
         </ProtectedRoute>
       } />
       <Route path="/admin/contests/:id" element={
