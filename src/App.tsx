@@ -21,8 +21,9 @@ import CreateContest from "./pages/admin/CreateContest";
 import EditContest from "./pages/admin/EditContest";
 import ContestDetails from "./pages/admin/ContestDetails";
 import Results from "./pages/admin/Results";
-import StudentList from "./pages/admin/StudentList";
-import CreateStudent from "./pages/admin/CreateStudent";
+import UserList from "./pages/admin/StudentList";
+import CreateUser from "./pages/admin/CreateStudent";
+import EditUser from "./pages/admin/EditStudent";
 import EnrollStudents from "./pages/admin/EnrollStudents";
 
 // Student pages
@@ -103,15 +104,37 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
 
-      {/* Student Management Routes */}
+      {/* User Management Routes (includes both students and admins) */}
+      <Route path="/admin/users" element={
+        <ProtectedRoute requireAdmin>
+          <UserList />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/users/create" element={
+        <ProtectedRoute requireAdmin>
+          <CreateUser />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/users/:id/edit" element={
+        <ProtectedRoute requireAdmin>
+          <EditUser />
+        </ProtectedRoute>
+      } />
+
+      {/* Student Management Routes (legacy - redirects to users) */}
       <Route path="/admin/students" element={
         <ProtectedRoute requireAdmin>
-          <StudentList />
+          <UserList />
         </ProtectedRoute>
       } />
       <Route path="/admin/students/create" element={
         <ProtectedRoute requireAdmin>
-          <CreateStudent />
+          <CreateUser />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/students/:id/edit" element={
+        <ProtectedRoute requireAdmin>
+          <EditUser />
         </ProtectedRoute>
       } />
 

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Search, Users, BookOpen, GraduationCap, Calendar, TrendingUp, RefreshCw, Download, Settings, Eye, UserPlus, Clock, Target } from 'lucide-react';
+import { Plus, Search, Users, BookOpen, GraduationCap, Calendar, TrendingUp, RefreshCw, Download, Settings, Eye, UserPlus, Clock, Target, Trash2 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { toast } from '@/hooks/use-toast';
 
@@ -61,6 +61,31 @@ const CourseList = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string, courseName: string, studentCount: number) => {
+    const message = studentCount > 0 
+      ? `Are you sure you want to delete the course "${courseName}"?\n\nThis will permanently delete:\n• The course itself\n• ${studentCount} student enrollment${studentCount !== 1 ? 's' : ''}\n• All associated contests and quiz data\n\nThis action cannot be undone.`
+      : `Are you sure you want to delete the course "${courseName}"?\n\nThis action cannot be undone.`;
+    
+    if (!confirm(message)) {
+      return;
+    }
+
+    try {
+      const result = await apiService.deleteCourse(courseId);
+      toast({
+        title: "Success",
+        description: `Course "${courseName}" deleted successfully`
+      });
+      loadCourses(); // Refresh the course list
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete course",
+        variant: "destructive"
+      });
     }
   };
 
@@ -348,6 +373,15 @@ const CourseList = () => {
                           className="hover:bg-green-50 hover:border-green-300"
                         >
                           <UserPlus className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDeleteCourse(course.id, course.name, course.student_count || 0)}
+                          className="hover:bg-red-50 hover:border-red-300 text-red-600"
+                          title="Delete course"
+                        >
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
                     </CardContent>

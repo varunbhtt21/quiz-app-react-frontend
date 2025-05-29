@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
+import { Badge } from '@/components/ui/badge';
 
 interface MCQFormData {
   title: string;
@@ -20,6 +21,7 @@ interface MCQFormData {
   option_c: string;
   option_d: string;
   explanation?: string;
+  image?: File;
 }
 
 interface MCQData {
@@ -32,6 +34,7 @@ interface MCQData {
   option_d: string;
   correct_options: string[];
   explanation?: string;
+  image_url?: string;
 }
 
 const EditMCQ = () => {
@@ -40,6 +43,7 @@ const EditMCQ = () => {
   const [correctOptions, setCorrectOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<MCQFormData>();
 
   useEffect(() => {
@@ -63,6 +67,11 @@ const EditMCQ = () => {
       setValue('option_d', mcqData.option_d);
       setValue('explanation', mcqData.explanation || '');
       setCorrectOptions(mcqData.correct_options || []);
+      
+      // Set image preview if exists
+      if (mcqData.image_url) {
+        setImagePreview(`http://localhost:8000${mcqData.image_url}`);
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -74,6 +83,32 @@ const EditMCQ = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "Error",
+          description: "Image size should be less than 5MB",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      setValue('image', file);
+    }
+  };
+
+  const removeImage = () => {
+    setImagePreview(null);
+    setValue('image', undefined);
   };
 
   const onSubmit = async (data: MCQFormData) => {
@@ -90,12 +125,22 @@ const EditMCQ = () => {
 
     try {
       setUpdating(true);
-      const updateData = {
-        ...data,
-        correct_options: correctOptions
-      };
+      const formData = new FormData();
+      formData.append('title', data.title);
+      formData.append('description', data.description);
+      formData.append('option_a', data.option_a);
+      formData.append('option_b', data.option_b);
+      formData.append('option_c', data.option_c);
+      formData.append('option_d', data.option_d);
+      formData.append('correct_options', JSON.stringify(correctOptions));
+      if (data.explanation) {
+        formData.append('explanation', data.explanation);
+      }
+      if (data.image) {
+        formData.append('image', data.image);
+      }
       
-      await apiService.updateMCQ(id, updateData);
+      await apiService.updateMCQ(id, formData);
       
       toast({
         title: "Success",
@@ -249,6 +294,51 @@ const EditMCQ = () => {
                   placeholder="Enter explanation for the correct answer"
                   rows={3}
                 />
+              </div>
+
+              {/* Image Upload Field */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="image" className="text-sm font-semibold text-gray-700">Question Image</Label>
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">Optional</span>
+                </div>
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-1">
+                      <Input
+                        id="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="border-gray-300 focus:border-green-500 focus:ring-green-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Supported formats: JPG, PNG, GIF (max 5MB)
+                      </p>
+                    </div>
+                    {imagePreview && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={removeImage}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  {imagePreview && (
+                    <div className="relative w-full max-w-md mx-auto">
+                      <img
+                        src={imagePreview}
+                        alt="Question preview"
+                        className="w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-end space-x-4">

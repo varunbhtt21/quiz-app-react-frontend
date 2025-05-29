@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import Layout from '../../components/common/Layout';
@@ -8,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Save, Home, ChevronRight, User, Info, UserPlus, Mail, Lock, Shield, CheckCircle, Users, BookOpen, Trophy } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Save, Home, ChevronRight, User, Info, UserPlus, Mail, Lock, Shield, CheckCircle, Users, BookOpen, Trophy, UserCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 
@@ -21,6 +22,7 @@ interface StudentFormData {
 const CreateStudent = () => {
   const navigate = useNavigate();
   const { register, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm<StudentFormData>();
+  const [selectedRole, setSelectedRole] = useState<string>('student');
 
   const password = watch('password');
 
@@ -37,19 +39,20 @@ const CreateStudent = () => {
     try {
       await apiService.createStudent({
         email: data.email,
-        password: data.password
+        password: data.password,
+        role: selectedRole as 'admin' | 'student'
       });
       
       toast({
         title: "Success",
-        description: "Student created successfully! They can now be enrolled in courses."
+        description: `${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} created successfully!`
       });
       
       navigate('/admin/students');
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create student",
+        description: error instanceof Error ? error.message : "Failed to create user",
         variant: "destructive"
       });
     }
@@ -321,6 +324,44 @@ const CreateStudent = () => {
                     {errors.confirmPassword.message}
                   </p>
                 )}
+              </div>
+
+              {/* Role Selection */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="role" className="text-sm font-semibold text-gray-700">User Role *</Label>
+                  <HelpTooltip content="Select whether this user should be an Administrator or Student. Administrators can access the admin panel, while students can only access the learning dashboard." />
+                </div>
+                <div className="relative">
+                  <Select
+                    value={selectedRole}
+                    onValueChange={setSelectedRole}
+                  >
+                    <SelectTrigger className="w-full h-12 border-2 border-gray-200 focus:border-blue-500">
+                      <SelectValue placeholder="Select user role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="student">
+                        <div className="flex items-center space-x-2">
+                          <UserCheck className="h-4 w-4 text-green-600" />
+                          <span>Student</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="admin">
+                        <div className="flex items-center space-x-2">
+                          <Shield className="h-4 w-4 text-red-600" />
+                          <span>Administrator</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-gray-600">
+                  {selectedRole === 'admin' 
+                    ? '👨‍💼 Administrators have full access to manage students, courses, and contests.'
+                    : '🎓 Students can participate in quizzes and view their progress.'
+                  }
+                </p>
               </div>
 
               {/* Enhanced Next Steps Preview */}

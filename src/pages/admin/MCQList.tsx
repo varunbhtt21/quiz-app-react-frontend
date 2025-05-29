@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, FileText, Brain, Target, Calendar, Filter, Download, RefreshCw, BookOpen, CheckCircle, Clock, TrendingUp, Upload, FileSpreadsheet, AlertCircle, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, FileText, Brain, Target, Calendar, Filter, Download, RefreshCw, BookOpen, CheckCircle, Clock, TrendingUp, Upload, FileSpreadsheet, AlertCircle, X, Camera, ImageIcon, Trash } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 
@@ -20,6 +20,7 @@ interface MCQProblem {
   option_d: string;
   correct_options: string;
   explanation?: string;
+  image_url?: string;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +44,7 @@ const MCQList = () => {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showImportResult, setShowImportResult] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadMCQs();
@@ -171,6 +173,79 @@ const MCQList = () => {
     }
   };
 
+  const handleQuickImageUpload = async (mcqId: string, file: File) => {
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Error",
+        description: "Please select a valid image file (JPG, PNG, or GIF)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "Image size should be less than 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setUploadingImage(mcqId);
+      
+      // Show uploading toast
+      toast({
+        title: "Uploading...",
+        description: "Please wait while we upload your image",
+      });
+      
+      await apiService.uploadMCQImage(mcqId, file);
+      
+      toast({
+        title: "Success",
+        description: "Image uploaded successfully"
+      });
+      
+      // Refresh the list to show the new image
+      loadMCQs();
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to upload image",
+        variant: "destructive"
+      });
+    } finally {
+      setUploadingImage(null);
+    }
+  };
+
+  const handleRemoveImage = async (mcqId: string) => {
+    if (!confirm("Are you sure you want to remove this image?")) {
+      return;
+    }
+
+    try {
+      await apiService.removeMCQImage(mcqId);
+      toast({
+        title: "Success",
+        description: "Image removed successfully"
+      });
+      loadMCQs(); // Refresh the list
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to remove image",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredMcqs = mcqs.filter(mcq =>
     mcq.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     mcq.description.toLowerCase().includes(searchTerm.toLowerCase())
@@ -192,6 +267,7 @@ const MCQList = () => {
   };
 
   const multipleAnswerQuestions = mcqs.filter(mcq => getCorrectOptionsCount(mcq.correct_options) > 1).length;
+  const questionsWithImages = mcqs.filter(mcq => mcq.image_url && mcq.image_url.trim()).length;
 
   if (loading) {
     return (
@@ -293,14 +369,14 @@ const MCQList = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">With Explanations</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1">With Images</p>
                   <p className="text-3xl font-bold text-orange-600">
-                    {mcqs.filter(mcq => mcq.explanation && mcq.explanation.trim()).length}
+                    {questionsWithImages}
                   </p>
-                  <p className="text-xs text-gray-500">Have explanations</p>
+                  <p className="text-xs text-gray-500">Have visual content</p>
                 </div>
                 <div className="p-3 rounded-xl bg-orange-50">
-                  <Target className="h-6 w-6 text-orange-600" />
+                  <ImageIcon className="h-6 w-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>
@@ -431,6 +507,7 @@ const MCQList = () => {
                   <TableHeader className="bg-gray-50">
                     <TableRow>
                       <TableHead className="font-semibold">Question</TableHead>
+                      <TableHead className="font-semibold">Image</TableHead>
                       <TableHead className="font-semibold">Type</TableHead>
                       <TableHead className="font-semibold">Created</TableHead>
                       <TableHead className="font-semibold">Status</TableHead>
@@ -460,6 +537,66 @@ const MCQList = () => {
                                   </div>
                                 </div>
                               </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              {mcq.image_url ? (
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden">
+                                    <img 
+                                      src={`http://localhost:8000${mcq.image_url}`} 
+                                      alt={mcq.title} 
+                                      className="w-full h-full object-cover" 
+                                    />
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleRemoveImage(mcq.id)}
+                                    className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    id={`image-upload-${mcq.id}`}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      console.log('File selected:', file);
+                                      if (file) {
+                                        console.log('Starting upload for MCQ:', mcq.id);
+                                        handleQuickImageUpload(mcq.id, file);
+                                        // Reset the input value to allow uploading the same file again
+                                        e.target.value = '';
+                                      }
+                                    }}
+                                    disabled={uploadingImage === mcq.id}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                    disabled={uploadingImage === mcq.id}
+                                    onClick={() => {
+                                      const input = document.getElementById(`image-upload-${mcq.id}`) as HTMLInputElement;
+                                      input?.click();
+                                    }}
+                                  >
+                                    {uploadingImage === mcq.id ? (
+                                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+                                    ) : (
+                                      <Camera className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                  <span className="text-xs text-gray-500">No image</span>
+                                </div>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>

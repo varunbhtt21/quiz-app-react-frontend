@@ -89,24 +89,72 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async createMCQ(data: any) {
-    const response = await fetch(`${API_BASE_URL}/mcq/`, {
+  async createMCQ(data: FormData): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/mcq`, {
       method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(data),
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+      },
+      body: data
     });
-    
-    return this.handleResponse(response);
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to create MCQ');
+    }
+
+    return response.json();
   }
 
-  async updateMCQ(id: string, data: any) {
+  async updateMCQ(id: string, data: FormData): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/mcq/${id}`, {
       method: 'PUT',
-      headers: this.getHeaders(),
-      body: JSON.stringify(data),
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+      },
+      body: data
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to update MCQ');
+    }
+
+    return response.json();
+  }
+
+  async uploadMCQImage(id: string, imageFile: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('image', imageFile);
     
-    return this.handleResponse(response);
+    const response = await fetch(`${API_BASE_URL}/mcq/${id}/upload-image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to upload image');
+    }
+
+    return response.json();
+  }
+
+  async removeMCQImage(id: string): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/mcq/${id}/remove-image`, {
+      method: 'DELETE',
+      headers: this.getHeaders()
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to remove image');
+    }
+
+    return response.json();
   }
 
   async deleteMCQ(id: string) {
@@ -177,6 +225,15 @@ class ApiService {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async deleteCourse(id: string) {
+    const response = await fetch(`${API_BASE_URL}/courses/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
     });
     
     return this.handleResponse(response);
@@ -318,8 +375,8 @@ class ApiService {
     return response.blob();
   }
 
-  // Student Management
-  async getStudents(skip = 0, limit = 100, search?: string) {
+  // User Management (formerly Student Management)
+  async getUsers(skip = 0, limit = 100, search?: string, role?: string) {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -329,6 +386,10 @@ class ApiService {
       params.append('search', search);
     }
     
+    if (role) {
+      params.append('role', role);
+    }
+    
     const response = await fetch(`${API_BASE_URL}/students/?${params}`, {
       headers: this.getHeaders(),
     });
@@ -336,7 +397,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async getStudent(id: string) {
+  async getUser(id: string) {
     const response = await fetch(`${API_BASE_URL}/students/${id}`, {
       headers: this.getHeaders(),
     });
@@ -344,7 +405,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async createStudent(data: any) {
+  async createUser(data: any) {
     const response = await fetch(`${API_BASE_URL}/students/`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -354,7 +415,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async updateStudent(id: string, data: any) {
+  async updateUser(id: string, data: any) {
     const response = await fetch(`${API_BASE_URL}/students/${id}`, {
       method: 'PUT',
       headers: this.getHeaders(),
@@ -364,13 +425,34 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async deleteStudent(id: string) {
+  async deleteUser(id: string) {
     const response = await fetch(`${API_BASE_URL}/students/${id}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
     });
     
     return this.handleResponse(response);
+  }
+
+  // Keep backward compatibility methods
+  async getStudents(skip = 0, limit = 100, search?: string) {
+    return this.getUsers(skip, limit, search, 'student');
+  }
+
+  async getStudent(id: string) {
+    return this.getUser(id);
+  }
+
+  async createStudent(data: any) {
+    return this.createUser(data);
+  }
+
+  async updateStudent(id: string, data: any) {
+    return this.updateUser(id, data);
+  }
+
+  async deleteStudent(id: string) {
+    return this.deleteUser(id);
   }
 
   // Updated Course Enrollment (using student IDs instead of emails)
@@ -432,6 +514,7 @@ class ApiService {
     }
   }
 
+  // Keep backward compatibility
   async downloadStudentTemplate(): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}/students/template/download`, {
       headers: this.getHeaders(),
@@ -457,6 +540,15 @@ class ApiService {
     });
     
     return this.handleResponse(response);
+  }
+
+  // Alias for user management interface
+  async downloadUserTemplate(): Promise<Blob> {
+    return this.downloadStudentTemplate();
+  }
+
+  async bulkImportUsers(file: File) {
+    return this.bulkImportStudents(file);
   }
 }
 

@@ -21,6 +21,7 @@ interface ContestProblem {
   option_d: string;
   marks: number;
   order_index: number;
+  image_url?: string;
 }
 
 interface Contest {
@@ -498,6 +499,23 @@ const ContestTaking = () => {
                       {currentProblem.description}
                     </p>
                   </div>
+                  
+                  {/* Question Image */}
+                  {currentProblem.image_url && (
+                    <div className="mt-6 mb-6">
+                      <div className="max-w-md mx-auto">
+                        <img 
+                          src={`http://localhost:8000${currentProblem.image_url}`} 
+                          alt={`Question ${currentQuestion + 1} image`}
+                          className="w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                          onError={(e) => {
+                            console.error('Failed to load image:', currentProblem.image_url);
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Options */}

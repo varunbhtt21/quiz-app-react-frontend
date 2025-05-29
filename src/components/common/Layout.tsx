@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, BookOpen, Home, FileText, Trophy, GraduationCap, BarChart3, HelpCircle, Menu, X, Sparkles, ChevronDown, Bell, Settings } from 'lucide-react';
+import { LogOut, User, BookOpen, Home, FileText, Trophy, GraduationCap, BarChart3, HelpCircle, Menu, X, Sparkles, ChevronDown, Bell, Settings, Users } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
@@ -34,10 +34,10 @@ const Layout = ({ children }: LayoutProps) => {
       borderColor: 'border-blue-200'
     },
     { 
-      label: 'Students', 
-      path: '/admin/students', 
-      icon: User,
-      description: 'Manage student accounts and profiles',
+      label: 'User Management', 
+      path: '/admin/users', 
+      icon: Users,
+      description: 'Manage user accounts and system access',
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200'
@@ -127,10 +127,12 @@ const Layout = ({ children }: LayoutProps) => {
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-sm"></div>
                 </div>
                 <div className="hidden sm:block">
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                    QuizMaster
-                  </h1>
-                  <p className="text-sm text-gray-600 font-medium">Silicon Institute Platform</p>
+                  <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                      QuizMaster
+                    </h1>
+                    <p className="text-sm text-jazzee-500 font-semibold">by Jazzee</p>
+                  </div>
                 </div>
               </div>
               

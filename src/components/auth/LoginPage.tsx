@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { BookOpen, Lock, Mail, Eye, EyeOff, Shield, Users, Award, Zap, ArrowRight, Sparkles, GraduationCap, ChevronRight } from 'lucide-react';
+import { BookOpen, Lock, Mail, Eye, EyeOff, Shield, Users, Award, ArrowRight, Sparkles } from 'lucide-react';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -23,11 +23,6 @@ const LoginPage = () => {
     { icon: Users, title: "Student Management", description: "Efficiently manage all your students" },
     { icon: Award, title: "Real-time Analytics", description: "Track performance with detailed insights" },
     { icon: Shield, title: "Secure Platform", description: "Enterprise-grade security & privacy" }
-  ];
-
-  const demoAccounts = [
-    { type: "Admin", email: "admin@quiz.com", password: "admin123", icon: Shield, color: "from-blue-500 to-blue-600" },
-    { type: "Student", email: "student@quiz.com", password: "password", icon: GraduationCap, color: "from-green-500 to-green-600" }
   ];
 
   useEffect(() => {
@@ -59,29 +54,6 @@ const LoginPage = () => {
     }
   };
 
-  const handleDemoLogin = async (demoEmail: string, demoPassword: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
-    setIsLoading(true);
-
-    try {
-      await login(demoEmail, demoPassword);
-      toast({
-        title: "✨ Welcome to the demo!",
-        description: `Logged in as ${demoEmail.includes('admin') ? 'Admin' : 'Student'}. Exploring the platform...`,
-      });
-      navigate('/');
-    } catch (error) {
-      toast({
-        title: "🚫 Demo login failed",
-        description: "Please try again or contact support.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
       {/* Animated Background Elements */}
@@ -105,7 +77,7 @@ const LoginPage = () => {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-white">QuizMaster</h1>
-                <p className="text-blue-200 text-sm">Silicon Institute</p>
+                <p className="text-jazzee-300 text-sm font-medium">by Jazzee</p>
               </div>
             </div>
 
@@ -167,8 +139,8 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <Card className="backdrop-blur-lg bg-white/95 shadow-2xl border-0 overflow-hidden">
-              <CardHeader className="text-center pb-6 bg-gradient-to-br from-blue-50 to-purple-50">
+            <Card className="backdrop-blur-lg bg-white/95 shadow-2xl border-0 overflow-hidden ring-1 ring-jazzee-100">
+              <CardHeader className="text-center pb-6 bg-gradient-to-br from-blue-50 to-purple-50 border-b border-jazzee-100">
                 <div className="flex items-center justify-center mb-4">
                   <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1">
                     <Sparkles className="h-3 w-3 mr-1" />
@@ -243,51 +215,16 @@ const LoginPage = () => {
                   </Button>
                 </form>
 
-                {/* Demo Accounts Section */}
-                <div className="mt-8">
-                  <div className="flex items-center justify-center mb-4">
-                    <div className="h-px bg-gray-200 flex-1"></div>
-                    <span className="px-4 text-sm text-gray-500 bg-white">Quick Demo Access</span>
-                    <div className="h-px bg-gray-200 flex-1"></div>
-                  </div>
+                {/* Help Section */}
+                <div className="mt-6 text-center">
+                  <button className="text-sm text-gray-600 hover:text-jazzee-500 transition-colors duration-200 font-medium">
+                    Forgot your password?
+                  </button>
+                </div>
 
-                  <div className="grid grid-cols-1 gap-3">
-                    {demoAccounts.map((account, index) => {
-                      const Icon = account.icon;
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => handleDemoLogin(account.email, account.password)}
-                          disabled={isLoading}
-                          className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className={`p-2 rounded-lg bg-gradient-to-r ${account.color} shadow-lg`}>
-                              <Icon className="h-5 w-5 text-white" />
-                            </div>
-                            <div className="text-left">
-                              <div className="font-semibold text-gray-800">{account.type} Demo</div>
-                              <div className="text-sm text-gray-500">{account.email}</div>
-                            </div>
-                          </div>
-                          {isLoading ? (
-                            <div className="w-5 h-5 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
-                          ) : (
-                            <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-blue-500 transform group-hover:translate-x-1 transition-all duration-300" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-center space-x-2 text-amber-800">
-                      <Zap className="h-4 w-4" />
-                      <span className="text-sm font-medium">One-Click Demo</span>
-                    </div>
-                    <p className="text-xs text-amber-700 mt-1">
-                      Click any demo account above to instantly log in and explore the platform
-                    </p>
+                <div className="mt-4 text-center">
+                  <div className="text-xs text-gray-500">
+                    Need help? Contact your institution's administrator
                   </div>
                 </div>
               </CardContent>
@@ -295,7 +232,7 @@ const LoginPage = () => {
 
             {/* Footer */}
             <div className="text-center mt-6 text-gray-400 text-sm">
-              <p>© 2025 Silicon Institute. All rights reserved.</p>
+              <p>© 2025 <span className="text-jazzee-500 font-medium">Jazzee</span>. All rights reserved.</p>
             </div>
           </div>
         </div>

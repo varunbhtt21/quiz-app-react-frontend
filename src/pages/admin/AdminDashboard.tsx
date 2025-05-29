@@ -162,7 +162,7 @@ const AdminDashboard = () => {
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Welcome to Quiz System</h1>
+              <h1 className="text-3xl font-bold mb-2">Welcome to QuizMaster</h1>
               <p className="text-blue-100 text-lg">
                 Create courses, build question banks, and conduct online assessments with ease
               </p>

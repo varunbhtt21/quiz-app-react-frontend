@@ -24,6 +24,19 @@ export default {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				jazzee: {
+					DEFAULT: '#FF6B35',
+					50: '#FFF4F0',
+					100: '#FFE8E0',
+					200: '#FFD1C1',
+					300: '#FFBA9F',
+					400: '#FF8B5D',
+					500: '#FF6B35',
+					600: '#E85A2B',
+					700: '#C04823',
+					800: '#9A3A1D',
+					900: '#7A2E17'
+				},
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'
