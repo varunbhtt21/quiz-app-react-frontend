@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Search, Edit, Trash2, FileText, Brain, Target, Calendar, Filter, Download, RefreshCw, BookOpen, CheckCircle, Clock, TrendingUp, Upload, FileSpreadsheet, AlertCircle, X, Camera, ImageIcon, Trash } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
+import { API_SERVER_URL } from '../../config/api';
 
 interface MCQProblem {
   id: string;
@@ -545,7 +546,7 @@ const MCQList = () => {
                                 <div className="flex items-center space-x-2">
                                   <div className="w-12 h-12 bg-gray-200 rounded-lg overflow-hidden">
                                     <img 
-                                      src={`http://localhost:8000${mcq.image_url}`} 
+                                      src={mcq.image_url.startsWith('http') ? mcq.image_url : `${API_SERVER_URL}${mcq.image_url}`} 
                                       alt={mcq.title} 
                                       className="w-full h-full object-cover" 
                                     />
@@ -561,39 +562,39 @@ const MCQList = () => {
                                 </div>
                               ) : (
                                 <div className="flex items-center space-x-2">
-                                  <input
+                                    <input
                                     id={`image-upload-${mcq.id}`}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
                                       console.log('File selected:', file);
-                                      if (file) {
+                                        if (file) {
                                         console.log('Starting upload for MCQ:', mcq.id);
-                                        handleQuickImageUpload(mcq.id, file);
+                                          handleQuickImageUpload(mcq.id, file);
                                         // Reset the input value to allow uploading the same file again
                                         e.target.value = '';
-                                      }
-                                    }}
-                                    disabled={uploadingImage === mcq.id}
-                                  />
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                    disabled={uploadingImage === mcq.id}
+                                        }
+                                      }}
+                                      disabled={uploadingImage === mcq.id}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                      disabled={uploadingImage === mcq.id}
                                     onClick={() => {
                                       const input = document.getElementById(`image-upload-${mcq.id}`) as HTMLInputElement;
                                       input?.click();
                                     }}
-                                  >
-                                    {uploadingImage === mcq.id ? (
-                                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
-                                    ) : (
-                                      <Camera className="h-3 w-3" />
-                                    )}
-                                  </Button>
+                                    >
+                                      {uploadingImage === mcq.id ? (
+                                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+                                      ) : (
+                                        <Camera className="h-3 w-3" />
+                                      )}
+                                    </Button>
                                   <span className="text-xs text-gray-500">No image</span>
                                 </div>
                               )}

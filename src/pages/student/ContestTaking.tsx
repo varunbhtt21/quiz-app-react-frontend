@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight, Clock, Send, Loader2, AlertTriangle, CheckCircle, Circle, BookOpen, Target, Timer, Award } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
+import { API_SERVER_URL } from '../../config/api';
 
 interface ContestProblem {
   id: string;
@@ -502,18 +503,13 @@ const ContestTaking = () => {
                   
                   {/* Question Image */}
                   {currentProblem.image_url && (
-                    <div className="mt-6 mb-6">
-                      <div className="max-w-md mx-auto">
-                        <img 
-                          src={`http://localhost:8000${currentProblem.image_url}`} 
-                          alt={`Question ${currentQuestion + 1} image`}
-                          className="w-full h-auto rounded-lg border border-gray-200 shadow-sm"
-                          onError={(e) => {
-                            console.error('Failed to load image:', currentProblem.image_url);
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      </div>
+                    <div className="mt-6 flex justify-center">
+                      <img
+                        src={currentProblem.image_url.startsWith('http') ? currentProblem.image_url : `${API_SERVER_URL}${currentProblem.image_url}`}
+                        alt="Question image"
+                        className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                        style={{ maxHeight: '400px' }}
+                      />
                     </div>
                   )}
                 </div>

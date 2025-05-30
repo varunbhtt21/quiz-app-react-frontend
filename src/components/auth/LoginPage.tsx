@@ -219,8 +219,8 @@ const LoginPage = () => {
                 <div className="mt-6 text-center">
                   <button className="text-sm text-gray-600 hover:text-jazzee-500 transition-colors duration-200 font-medium">
                     Forgot your password?
-                  </button>
-                </div>
+                        </button>
+                  </div>
 
                 <div className="mt-4 text-center">
                   <div className="text-xs text-gray-500">

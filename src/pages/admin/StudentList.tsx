@@ -64,7 +64,7 @@ const UserList = () => {
     if (roleFilter !== 'all') {
       filtered = filtered.filter(user => user.role === roleFilter);
     }
-    
+
     setFilteredUsers(filtered);
   }, [users, searchTerm, statusFilter, roleFilter]);
 

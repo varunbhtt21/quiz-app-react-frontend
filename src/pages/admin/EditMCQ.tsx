@@ -12,6 +12,7 @@ import { ArrowLeft, Save, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 import { Badge } from '@/components/ui/badge';
+import { API_SERVER_URL } from '../../config/api';
 
 interface MCQFormData {
   title: string;
@@ -70,7 +71,7 @@ const EditMCQ = () => {
       
       // Set image preview if exists
       if (mcqData.image_url) {
-        setImagePreview(`http://localhost:8000${mcqData.image_url}`);
+        setImagePreview(mcqData.image_url.startsWith('http') ? mcqData.image_url : `${API_SERVER_URL}${mcqData.image_url}`);
       }
     } catch (error) {
       toast({

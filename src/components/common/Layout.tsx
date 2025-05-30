@@ -129,8 +129,8 @@ const Layout = ({ children }: LayoutProps) => {
                 <div className="hidden sm:block">
                   <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                      QuizMaster
-                    </h1>
+                    QuizMaster
+                  </h1>
                     <p className="text-sm text-jazzee-500 font-semibold">by Jazzee</p>
                   </div>
                 </div>
