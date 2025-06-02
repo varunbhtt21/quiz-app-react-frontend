@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Zap, Smartphone, ArrowRight, Sparkles } from 'lucide-react';
+import { Shield, Zap, Smartphone, ArrowRight, Sparkles, CheckCircle, Users, BookOpen } from 'lucide-react';
 import { otplessService } from '@/services/otpless';
 
 interface OTPLESSLoginProps {
@@ -21,16 +21,30 @@ declare global {
 const OTPLESSLogin: React.FC<OTPLESSLoginProps> = ({ onLoginSuccess, onShowTraditionalLogin }) => {
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [widgetVisible, setWidgetVisible] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     console.log("🚀 OTPLESS Login Component Mounted");
-    
-    // Load OTPLESS SDK following official documentation
+    loadOTPLESSSDK();
+
+    return () => {
+      cleanupOTPLESS();
+    };
+  }, []);
+
+  const loadOTPLESSSDK = () => {
+    // Remove any existing script first
+    const existingScript = document.getElementById('otpless-sdk');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
+    // Load OTPLESS SDK
     const script = document.createElement('script');
     script.id = 'otpless-sdk';
     script.type = 'text/javascript';
-    script.src = 'https://otpless.com/v4/auth.js';  // Correct SDK URL per docs
+    script.src = 'https://otpless.com/v4/auth.js';
     script.setAttribute('data-appid', import.meta.env.VITE_OTPLESS_APP_ID || 'your_app_id_here');
     script.async = true;
     
@@ -38,37 +52,57 @@ const OTPLESSLogin: React.FC<OTPLESSLoginProps> = ({ onLoginSuccess, onShowTradi
       console.log("✅ OTPLESS SDK loaded successfully");
       setSdkLoaded(true);
       setupOTPLESSCallback();
+      
+      // Check if widget is visible after a short delay
+      setTimeout(() => {
+        const widget = document.querySelector('#otpless-login-page [data-otpless]') || 
+                      document.querySelector('#otpless-login-page iframe') ||
+                      document.querySelector('#otpless-login-page .otpless-widget');
+        
+        if (widget) {
+          setWidgetVisible(true);
+          console.log("✅ OTPless widget detected and visible");
+        }
+      }, 1000);
     };
     
     script.onerror = () => {
       console.error("❌ Failed to load OTPLESS SDK");
       toast({
-        title: "🚫 SDK Loading Failed",
-        description: "Failed to load OTPLESS SDK. Please refresh and try again.",
+        title: "Authentication Service Error",
+        description: "Failed to load authentication service. Please refresh and try again.",
         variant: "destructive",
       });
     };
     
     document.head.appendChild(script);
+  };
 
-    return () => {
-      // Cleanup script and callback
-      if (document.head.contains(script)) {
-        document.head.removeChild(script);
-      }
-      // Remove the global callback
-      if (window.otpless) {
-        delete window.otpless;
-      }
-    };
-  }, []);
+  const cleanupOTPLESS = () => {
+    // Remove script
+    const script = document.getElementById('otpless-sdk');
+    if (script) {
+      script.remove();
+    }
+    
+    // Clear callback
+    if (window.otpless) {
+      delete window.otpless;
+    }
+    
+    // Clear the widget container
+    const container = document.getElementById('otpless-login-page');
+    if (container) {
+      container.innerHTML = '';
+    }
+  };
 
   const setupOTPLESSCallback = () => {
     const appId = import.meta.env.VITE_OTPLESS_APP_ID || 'your_app_id_here';
     
     if (appId === 'your_app_id_here') {
       toast({
-        title: "⚠️ Configuration Error", 
+        title: "Configuration Error", 
         description: "OTPLESS App ID not configured. Please check your environment variables.",
         variant: "destructive",
       });
@@ -77,19 +111,19 @@ const OTPLESSLogin: React.FC<OTPLESSLoginProps> = ({ onLoginSuccess, onShowTradi
 
     console.log("🔧 Setting up OTPLESS callback with App ID:", appId);
 
-    // Clear any existing callback first to prevent interference
+    // Clear any existing callback
     if (window.otpless) {
       delete window.otpless;
     }
 
-    // Set up the global callback function as per official documentation
+    // Set up the global callback function
     window.otpless = (otplessUser: any) => {
       console.log("🎯 OTPLESS Callback Received:", otplessUser);
       
       if (otplessUser.status === "SUCCESS" && otplessUser.token) {
-        console.log("✅ Authentication successful, token received:", otplessUser.token);
+        console.log("✅ Authentication successful, token received");
         
-        // Clear the callback immediately after success to prevent duplicate calls
+        // Clear the callback immediately after success
         if (window.otpless) {
           delete window.otpless;
         }
@@ -98,7 +132,7 @@ const OTPLESSLogin: React.FC<OTPLESSLoginProps> = ({ onLoginSuccess, onShowTradi
       } else {
         console.error("❌ Authentication failed:", otplessUser);
         toast({
-          title: "🚫 Authentication Failed",
+          title: "Authentication Failed",
           description: otplessUser.errorMessage || "Please try again.",
           variant: "destructive",
         });
@@ -110,38 +144,28 @@ const OTPLESSLogin: React.FC<OTPLESSLoginProps> = ({ onLoginSuccess, onShowTradi
   };
 
   const handleAuthSuccess = async (token: string) => {
-    console.log("🚀 handleAuthSuccess called with token:", token);
+    console.log("🚀 Processing authentication...");
     setIsLoading(true);
     
     try {
-      console.log("📡 Calling backend to verify token...");
-      
-      // Verify token with backend
       const verificationResult = await otplessService.verifyToken(token);
-      console.log("✅ Backend verification successful:", verificationResult);
+      console.log("✅ Backend verification successful");
       
       toast({
-        title: "✨ Authentication Successful!",
-        description: "Welcome! Setting up your account...",
+        title: "Welcome to QuizMaster! 🎉",
+        description: "Authentication successful. Setting up your account...",
       });
 
-      console.log("🔄 Calling onLoginSuccess with:", {
-        access_token: verificationResult.access_token,
-        user: verificationResult.user
-      });
-
-      // Pass the result to parent component - add small delay to ensure state consistency
+      // Small delay for state consistency
       await new Promise(resolve => setTimeout(resolve, 100));
       onLoginSuccess(verificationResult.access_token, verificationResult.user);
       
     } catch (error: any) {
       console.error('❌ Token verification failed:', error);
-      
-      // Reset loading state on error
       setIsLoading(false);
       
       toast({
-        title: "🚫 Verification Failed",
+        title: "Verification Failed",
         description: error.message || "Please try again.",
         variant: "destructive",
       });
@@ -154,112 +178,141 @@ const OTPLESSLogin: React.FC<OTPLESSLoginProps> = ({ onLoginSuccess, onShowTradi
   };
 
   return (
-    <Card className="backdrop-blur-lg bg-white/95 shadow-2xl border-0 overflow-hidden ring-1 ring-blue-100">
-      <CardHeader className="text-center pb-6 bg-gradient-to-br from-blue-50 to-purple-50 border-b border-blue-100">
-        <div className="flex items-center justify-center mb-4">
-          <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1">
-            <Sparkles className="h-3 w-3 mr-1" />
-            Quick & Secure
-          </Badge>
-        </div>
-        <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-          Welcome to QuizMaster
-        </CardTitle>
-        <CardDescription className="text-gray-600">
-          Login with your mobile number - no passwords needed!
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="p-8 space-y-6">
-        {/* Debug Info - Remove in production */}
-        {import.meta.env.VITE_NODE_ENV === 'development' && (
-          <div className="bg-gray-100 p-3 rounded text-xs">
-            <strong>Debug:</strong> sdkLoaded: {sdkLoaded.toString()}, 
-            isLoading: {isLoading.toString()}
-          </div>
-        )}
-
-        {/* OTPLESS Login UI Container - This is where the OTPLESS Pre-Built UI will appear */}
-        <div className="space-y-4">
-          <div 
-            id="otpless-login-page" 
-            className="min-h-[200px] flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg"
-          >
-            {!sdkLoaded ? (
-              <div className="text-center text-sm text-gray-500">
-                <div className="flex items-center justify-center space-x-2 mb-2">
-                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Loading authentication service...</span>
-                </div>
-                <p className="text-xs text-gray-400">Setting up secure login...</p>
-              </div>
-            ) : (
-              <div className="text-center text-sm text-gray-500">
-                <div className="flex items-center justify-center space-x-2 mb-2">
-                  <Shield className="h-5 w-5 text-green-500" />
-                  <span className="text-green-600 font-medium">Authentication Ready</span>
-                </div>
-                <p className="text-xs text-gray-400">
-                  OTPLESS login widget should appear here.
-                  <br />
-                  If not visible, check console for errors.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Loading indicator when processing authentication */}
-          {isLoading && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <div>
-                  <p className="text-blue-800 font-medium">Processing Authentication...</p>
-                  <p className="text-blue-600 text-sm">Please wait while we verify your account.</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Features List */}
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center space-x-3 text-gray-700">
-            <div className="bg-green-100 p-2 rounded-lg">
-              <Shield className="h-4 w-4 text-green-600" />
-            </div>
-            <div>
-              <p className="font-medium text-sm">Secure Authentication</p>
-              <p className="text-xs text-gray-500">OTP-based login ensures your account security</p>
-            </div>
+    <div className="w-full max-w-md mx-auto">
+      <Card className="overflow-hidden border-0 shadow-2xl bg-white/95 backdrop-blur-lg">
+        {/* Header */}
+        <CardHeader className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 text-center pb-6">
+          <div className="flex justify-center mb-4">
+            <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 text-sm font-medium">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Quick & Secure Login
+            </Badge>
           </div>
           
-          <div className="flex items-center space-x-3 text-gray-700">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <Zap className="h-4 w-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="font-medium text-sm">Lightning Fast</p>
-              <p className="text-xs text-gray-500">Get started in seconds with mobile verification</p>
-            </div>
-          </div>
-        </div>
+          <CardTitle className="text-2xl md:text-3xl font-bold mb-3">
+            <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Welcome to QuizMaster
+            </span>
+          </CardTitle>
+          
+          <CardDescription className="text-gray-600 text-base">
+            Secure authentication with your mobile number
+          </CardDescription>
+        </CardHeader>
 
-        {/* Alternative Login Option */}
-        <div className="pt-6 border-t border-gray-200">
-          <div className="text-center">
-            <p className="text-sm text-gray-600 mb-3">Are you an administrator?</p>
-            <Button
-              variant="outline"
-              onClick={onShowTraditionalLogin}
-              className="w-full border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all duration-300"
+        <CardContent className="p-6 md:p-8">
+          {/* OTPless Widget Container */}
+          <div className="mb-8">
+            <div 
+              id="otpless-login-page"
+              className={`relative transition-all duration-500 ${
+                sdkLoaded && widgetVisible 
+                  ? 'min-h-[300px]' 
+                  : 'min-h-[200px] border-2 border-dashed border-gray-200 rounded-xl'
+              }`}
             >
-              Login with Email & Password
-            </Button>
+              {/* Loading State */}
+              {!sdkLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="flex justify-center mb-4">
+                      <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <p className="text-gray-600 font-medium">Loading Authentication</p>
+                    <p className="text-gray-400 text-sm mt-1">Setting up secure login...</p>
+                  </div>
+                </div>
+              )}
+
+              {/* SDK Loaded but Widget Not Visible */}
+              {sdkLoaded && !widgetVisible && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="flex justify-center mb-4">
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                        <Shield className="h-6 w-6 text-green-600" />
+                      </div>
+                    </div>
+                    <p className="text-green-700 font-medium">Authentication Ready</p>
+                    <p className="text-gray-500 text-sm mt-2 max-w-xs">
+                      If the login form doesn't appear, please refresh the page or check your connection.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-3"
+                      onClick={() => window.location.reload()}
+                    >
+                      Refresh Page
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Processing State */}
+              {isLoading && (
+                <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center z-10">
+                  <div className="text-center">
+                    <div className="flex justify-center mb-4">
+                      <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <p className="text-blue-700 font-medium">Verifying Authentication</p>
+                    <p className="text-blue-600 text-sm mt-1">Please wait...</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+
+          {/* Features Section */}
+          <div className="space-y-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                    <Shield className="h-4 w-4 text-green-600" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-green-800 font-medium text-sm">Secure</p>
+                  <p className="text-green-600 text-xs">OTP-based authentication</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Zap className="h-4 w-4 text-blue-600" />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-blue-800 font-medium text-sm">Fast</p>
+                  <p className="text-blue-600 text-xs">Login in seconds</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Admin Login Option */}
+          <div className="pt-6 border-t border-gray-200">
+            <div className="text-center">
+              <p className="text-gray-600 text-sm mb-4">
+                Need to access admin features?
+              </p>
+              <Button
+                variant="outline"
+                onClick={onShowTraditionalLogin}
+                className="w-full border-2 border-gray-300 hover:border-orange-500 hover:bg-orange-50 transition-all duration-300 group"
+              >
+                <Shield className="h-4 w-4 mr-2 text-orange-500" />
+                <span>Administrator Login</span>
+                <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
