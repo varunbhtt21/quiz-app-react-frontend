@@ -424,14 +424,6 @@ const StudentDashboard = () => {
                       </div>
                       <div className="flex space-x-3">
                         <Button 
-                          variant="outline"
-                          onClick={() => navigate(`/student/contest/${contest.id}`)}
-                          className="hover:bg-green-50 hover:border-green-300"
-                        >
-                          <Activity className="h-4 w-4 mr-2" />
-                          Preview
-                        </Button>
-                        <Button 
                           onClick={() => navigate(`/student/contest/${contest.id}`)}
                           className="bg-green-600 hover:bg-green-700 text-white px-6 shadow-lg hover:shadow-xl transition-all duration-300"
                         >
@@ -589,8 +581,8 @@ const StudentDashboard = () => {
                               onClick={() => navigate(`/student/contest/${contest.id}`)}
                               className="hover:bg-green-50 hover:border-green-300"
                             >
-                              <Award className="h-4 w-4 mr-2" />
-                              View Submission
+                              <Activity className="h-4 w-4 mr-2" />
+                              Preview Answers
                             </Button>
                           )}
                           <Button 

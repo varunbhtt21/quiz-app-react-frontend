@@ -75,7 +75,12 @@ const LoginPage = () => {
         title: "🎉 Welcome to QuizMaster!",
         description: "Login successful. Redirecting to dashboard...",
       });
-      navigate('/');
+      
+      // Add a small delay to ensure auth state is fully updated before navigation
+      setTimeout(() => {
+        navigate('/');
+      }, 200);
+      
     } catch (error: any) {
       toast({
         title: "🚫 Login Setup Failed",
@@ -111,10 +116,7 @@ const LoginPage = () => {
 
         <div className="relative z-10 min-h-screen flex items-center justify-center px-6 py-12">
           <div className="w-full max-w-md">
-            <ProfileCompletion 
-              userData={tempUserData} 
-              onProfileComplete={handleProfileComplete}
-            />
+            <ProfileCompletion />
           </div>
         </div>
       </div>

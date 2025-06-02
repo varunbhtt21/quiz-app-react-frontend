@@ -74,7 +74,7 @@ class ApiService {
   }
 
   // MCQ Management
-  async getMCQs(skip = 0, limit = 100, search?: string) {
+  async getMCQs(skip = 0, limit = 100, search?: string, tagIds?: string, tagNames?: string, createdBy?: string, needsTags?: boolean) {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -84,7 +84,44 @@ class ApiService {
       params.append('search', search);
     }
     
+    if (tagIds) {
+      params.append('tag_ids', tagIds);
+    }
+    
+    if (tagNames) {
+      params.append('tag_names', tagNames);
+    }
+    
+    if (createdBy) {
+      params.append('created_by', createdBy);
+    }
+    
+    if (needsTags !== undefined) {
+      params.append('needs_tags', needsTags.toString());
+    }
+    
     const response = await fetch(`${API_BASE_URL}/mcq/?${params}`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async getMCQsList(skip = 0, limit = 100, search?: string, tagIds?: string) {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    
+    if (search) {
+      params.append('search', search);
+    }
+    
+    if (tagIds) {
+      params.append('tag_ids', tagIds);
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/mcq/list?${params}`, {
       headers: this.getHeaders(),
     });
     
@@ -99,13 +136,11 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async createMCQ(data: FormData): Promise<any> {
+  async createMCQ(data: any): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/mcq`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      },
-      body: data
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
     });
 
     if (!response.ok) {
@@ -116,13 +151,11 @@ class ApiService {
     return response.json();
   }
 
-  async updateMCQ(id: string, data: FormData): Promise<any> {
+  async updateMCQ(id: string, data: any): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/mcq/${id}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-      },
-      body: data
+      headers: this.getHeaders(),
+      body: JSON.stringify(data)
     });
 
     if (!response.ok) {
@@ -198,11 +231,83 @@ class ApiService {
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
-    
+
     const response = await fetch(`${API_BASE_URL}/mcq/bulk-import`, {
       method: 'POST',
       headers,
       body: formData,
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  // Tag Management
+  async getTags(skip = 0, limit = 100, search?: string, createdBy?: string) {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    
+    if (search) {
+      params.append('search', search);
+    }
+    
+    if (createdBy) {
+      params.append('created_by', createdBy);
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/tags/?${params}`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async getTag(id: string) {
+    const response = await fetch(`${API_BASE_URL}/tags/${id}`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async createTag(data: { name: string; description?: string; color?: string }) {
+    const response = await fetch(`${API_BASE_URL}/tags/`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async updateTag(id: string, data: { name?: string; description?: string; color?: string }) {
+    const response = await fetch(`${API_BASE_URL}/tags/${id}`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async deleteTag(id: string) {
+    const response = await fetch(`${API_BASE_URL}/tags/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async getTagSuggestions(query: string, limit = 10) {
+    const params = new URLSearchParams({
+      query,
+      limit: limit.toString(),
+    });
+    
+    const response = await fetch(`${API_BASE_URL}/tags/search/suggestions?${params}`, {
+      headers: this.getHeaders(),
     });
     
     return this.handleResponse(response);
@@ -361,6 +466,14 @@ class ApiService {
 
   async getMySubmission(contestId: string) {
     const response = await fetch(`${API_BASE_URL}/contests/${contestId}/my-submission`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async getMySubmissionDetails(contestId: string) {
+    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/my-submission-details`, {
       headers: this.getHeaders(),
     });
     

@@ -15,6 +15,7 @@ import StudentDashboard from "./pages/student/StudentDashboard";
 import MCQList from "./pages/admin/MCQList";
 import CreateMCQ from "./pages/admin/CreateMCQ";
 import EditMCQ from "./pages/admin/EditMCQ";
+import TagManagement from "./pages/admin/TagManagement";
 import CourseList from "./pages/admin/CourseList";
 import CreateCourse from "./pages/admin/CreateCourse";
 import CourseDetails from "./pages/admin/CourseDetails";
@@ -85,6 +86,13 @@ const AppRoutes = () => {
       <Route path="/admin/mcq/edit/:id" element={
         <ProtectedRoute requireAdmin>
           <EditMCQ />
+        </ProtectedRoute>
+      } />
+
+      {/* Tag Management Routes */}
+      <Route path="/admin/tags" element={
+        <ProtectedRoute requireAdmin>
+          <TagManagement />
         </ProtectedRoute>
       } />
 

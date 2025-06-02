@@ -30,6 +30,7 @@ interface MCQProblem {
   option_c: string;
   option_d: string;
   correct_options: string[];
+  needs_tags: boolean;
 }
 
 interface Course {
@@ -68,7 +69,12 @@ const CreateContest = () => {
       ]);
       
       setCourses(coursesData);
-      setMcqProblems(mcqData);
+      
+      // Filter out questions that need tags - only show properly tagged questions
+      const taggedQuestions = mcqData.filter(mcq => !mcq.needs_tags);
+      const questionsNeedingTags = mcqData.filter(mcq => mcq.needs_tags);
+      
+      setMcqProblems(taggedQuestions);
       
       if (coursesData.length === 0) {
         toast({
@@ -78,11 +84,27 @@ const CreateContest = () => {
         });
       }
       
-      if (mcqData.length === 0) {
+      if (taggedQuestions.length === 0) {
+        if (questionsNeedingTags.length > 0) {
+          toast({
+            title: "No Tagged Questions Available",
+            description: `${questionsNeedingTags.length} questions need tags assigned before they can be used in contests. Please assign tags in Question Bank first.`,
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "No MCQ Problems Available",
+            description: "Please create MCQ problems first before creating contests.",
+            variant: "destructive"
+          });
+        }
+      }
+      
+      if (questionsNeedingTags.length > 0) {
         toast({
-          title: "No MCQ Problems Available",
-          description: "Please create MCQ problems first before creating contests.",
-          variant: "destructive"
+          title: "Some Questions Need Tags",
+          description: `${questionsNeedingTags.length} questions need tags assigned. Only tagged questions can be used in contests.`,
+          variant: "default"
         });
       }
       
@@ -386,7 +408,7 @@ const CreateContest = () => {
           </Card>
         )}
 
-        {mcqProblems.length === 0 && (
+        {mcqProblems.length === 0 ? (
           <Card className="shadow-lg border-0 border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50 to-yellow-50">
             <CardContent className="p-6">
               <div className="flex items-center space-x-3">
@@ -394,297 +416,283 @@ const CreateContest = () => {
                   <AlertCircle className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-amber-900">No questions available</p>
-                  <p className="text-sm text-amber-800">You need to create MCQ questions before setting up contests.</p>
+                  <p className="font-medium text-amber-900">No tagged questions available for contests.</p>
+                  <p className="text-sm text-amber-800">Questions must have tags assigned before they can be used. Check Question Bank for untagged questions.</p>
                 </div>
                 <Button 
                   variant="outline" 
                   className="ml-auto border-amber-300 text-amber-700 hover:bg-amber-100"
                   onClick={() => navigate('/admin/mcq')}
                 >
-                  Create Questions
+                  Go to Question Bank
                 </Button>
               </div>
             </CardContent>
           </Card>
-        )}
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          {/* Enhanced Contest Details Form */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="border-b bg-gray-50">
-              <CardTitle className="flex items-center space-x-2 text-xl">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <FileText className="h-5 w-5 text-orange-600" />
-                </div>
-                <span>Contest Information</span>
-              </CardTitle>
-              <p className="text-gray-600 text-sm mt-1">Define the basic details and schedule for your contest</p>
-            </CardHeader>
-            <CardContent className="p-8 space-y-6">
-              <div className="space-y-3">
-                <Label htmlFor="name" className="text-sm font-semibold text-gray-700">Contest Name *</Label>
-                <Input
-                  id="name"
-                  {...register('name', { required: 'Contest name is required' })}
-                  placeholder="e.g., Programming Fundamentals Quiz"
-                  className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                />
-                {errors.name && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="description" className="text-sm font-semibold text-gray-700">Description</Label>
-                <Textarea
-                  id="description"
-                  {...register('description')}
-                  placeholder="e.g., Test your understanding of basic programming concepts including variables, loops, and functions."
-                  rows={4}
-                  className="border-gray-300 focus:border-orange-500 focus:ring-orange-500 resize-none"
-                />
-                <p className="text-xs text-gray-500">Optional description to help students understand the contest scope</p>
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="course_id" className="text-sm font-semibold text-gray-700">Course *</Label>
-                <select
-                  id="course_id"
-                  {...register('course_id', { required: 'Course selection is required' })}
-                  className="w-full h-12 p-3 border border-gray-300 rounded-md focus:border-orange-500 focus:ring-orange-500"
-                  disabled={courses.length === 0}
-                >
-                  <option value="">Select a course</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.course_id && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
-                    {errors.course_id.message}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500">Only students enrolled in this course can participate</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <Label htmlFor="start_time" className="text-sm font-semibold text-gray-700">Start Time *</Label>
-                  <Input
-                    id="start_time"
-                    type="datetime-local"
-                    {...register('start_time', { required: 'Start time is required' })}
-                    className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                  />
-                  {errors.start_time && (
-                    <p className="text-sm text-red-600 flex items-center">
-                      <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
-                      {errors.start_time.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  <Label htmlFor="end_time" className="text-sm font-semibold text-gray-700">End Time *</Label>
-                  <Input
-                    id="end_time"
-                    type="datetime-local"
-                    {...register('end_time', { required: 'End time is required' })}
-                    className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                  />
-                  {errors.end_time && (
-                    <p className="text-sm text-red-600 flex items-center">
-                      <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
-                      {errors.end_time.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Enhanced Problem Selection */}
-          <Card className="shadow-lg border-0">
-            <CardHeader className="border-b bg-gray-50">
-              <CardTitle className="flex items-center space-x-2 text-xl">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <BookOpen className="h-5 w-5 text-orange-600" />
-                </div>
-                <span>Select Questions</span>
-              </CardTitle>
-              <p className="text-gray-600 text-sm mt-1">Choose questions from your question bank and set their marks</p>
-              <div className="flex items-center space-x-2 mt-4">
-                <Search className="h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Search questions by title or description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="max-w-sm border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-8">
-              {mcqProblems.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <BookOpen className="h-8 w-8 text-gray-400" />
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            {/* Enhanced Contest Details Form */}
+            <Card className="shadow-lg border-0">
+              <CardHeader className="border-b bg-gray-50">
+                <CardTitle className="flex items-center space-x-2 text-xl">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <FileText className="h-5 w-5 text-orange-600" />
                   </div>
-                  <p className="text-gray-500 mb-4">No MCQ questions available.</p>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/admin/mcq')}
-                    className="border-orange-300 text-orange-700 hover:bg-orange-50"
-                  >
-                    Create Questions First
-                  </Button>
-                </div>
-              ) : filteredMCQs.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500">No questions match your search criteria.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredMCQs.map((mcq) => {
-                    const isSelected = selectedProblems.some(p => p.problem_id === mcq.id);
-                    const selectedProblem = selectedProblems.find(p => p.problem_id === mcq.id);
-
-                    return (
-                      <div key={mcq.id} className={`border rounded-lg p-6 transition-all ${isSelected ? 'border-orange-300 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <div className="flex items-start space-x-4">
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) => 
-                              handleProblemSelect(mcq, checked as boolean)
-                            }
-                            className="mt-1 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
-                          />
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 mb-2">{mcq.title}</h4>
-                            <p className="text-sm text-gray-600 mb-3">{mcq.description}</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                              <div className="flex items-center space-x-2">
-                                <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">A</span>
-                                <span>{mcq.option_a}</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">B</span>
-                                <span>{mcq.option_b}</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">C</span>
-                                <span>{mcq.option_c}</span>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">D</span>
-                                <span>{mcq.option_d}</span>
-                              </div>
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <div className="flex items-center space-x-2 bg-white p-3 rounded-lg border border-orange-200">
-                              <Label className="text-sm font-medium">Marks:</Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                max="10"
-                                value={selectedProblem?.marks || 1}
-                                onChange={(e) => 
-                                  updateProblemMarks(mcq.id, parseInt(e.target.value) || 1)
-                                }
-                                className="w-20 h-8 text-center border-gray-300 focus:border-orange-500 focus:ring-orange-500"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Enhanced Selected Problems Summary */}
-          {selectedProblems.length > 0 && (
-            <Card className="shadow-lg border-0 border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-emerald-50">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2 text-green-900">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </div>
-                  <span>Contest Summary</span>
+                  <span>Contest Information</span>
                 </CardTitle>
+                <p className="text-gray-600 text-sm mt-1">Define the basic details and schedule for your contest</p>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="text-center p-4 bg-white rounded-lg border border-green-100">
-                    <div className="text-2xl font-bold text-green-600">{selectedProblems.length}</div>
-                    <div className="text-sm text-green-800">Questions Selected</div>
-                  </div>
-                  <div className="text-center p-4 bg-white rounded-lg border border-green-100">
-                    <div className="text-2xl font-bold text-green-600">{totalMarks}</div>
-                    <div className="text-sm text-green-800">Total Marks</div>
-                  </div>
-                  <div className="text-center p-4 bg-white rounded-lg border border-green-100">
-                    <div className="text-2xl font-bold text-green-600">{Math.round(totalMarks / selectedProblems.length * 10) / 10}</div>
-                    <div className="text-sm text-green-800">Average Marks</div>
-                  </div>
+              <CardContent className="p-8 space-y-6">
+                <div className="space-y-3">
+                  <Label htmlFor="name" className="text-sm font-semibold text-gray-700">Contest Name *</Label>
+                  <Input
+                    id="name"
+                    {...register('name', { required: 'Contest name is required' })}
+                    placeholder="e.g., Programming Fundamentals Quiz"
+                    className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                  />
+                  {errors.name && (
+                    <p className="text-sm text-red-600 flex items-center">
+                      <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                      {errors.name.message}
+                    </p>
+                  )}
                 </div>
-                <div className="mt-6">
-                  <h4 className="font-semibold text-green-900 mb-3">Selected Questions:</h4>
-                  <div className="space-y-2">
-                    {selectedProblems.map((p) => (
-                      <div key={p.problem_id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-green-100">
-                        <span className="font-medium text-gray-900">{p.problem.title}</span>
-                        <Badge className="bg-green-100 text-green-800">{p.marks} marks</Badge>
-                      </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="description" className="text-sm font-semibold text-gray-700">Description</Label>
+                  <Textarea
+                    id="description"
+                    {...register('description')}
+                    placeholder="e.g., Test your understanding of basic programming concepts including variables, loops, and functions."
+                    rows={4}
+                    className="border-gray-300 focus:border-orange-500 focus:ring-orange-500 resize-none"
+                  />
+                  <p className="text-xs text-gray-500">Optional description to help students understand the contest scope</p>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="course_id" className="text-sm font-semibold text-gray-700">Course *</Label>
+                  <select
+                    id="course_id"
+                    {...register('course_id', { required: 'Course selection is required' })}
+                    className="w-full h-12 p-3 border border-gray-300 rounded-md focus:border-orange-500 focus:ring-orange-500"
+                    disabled={courses.length === 0}
+                  >
+                    <option value="">Select a course</option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.name}
+                      </option>
                     ))}
+                  </select>
+                  {errors.course_id && (
+                    <p className="text-sm text-red-600 flex items-center">
+                      <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                      {errors.course_id.message}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500">Only students enrolled in this course can participate</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="start_time" className="text-sm font-semibold text-gray-700">Start Time *</Label>
+                    <Input
+                      id="start_time"
+                      type="datetime-local"
+                      {...register('start_time', { required: 'Start time is required' })}
+                      className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                    />
+                    {errors.start_time && (
+                      <p className="text-sm text-red-600 flex items-center">
+                        <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.start_time.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="end_time" className="text-sm font-semibold text-gray-700">End Time *</Label>
+                    <Input
+                      id="end_time"
+                      type="datetime-local"
+                      {...register('end_time', { required: 'End time is required' })}
+                      className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                    />
+                    {errors.end_time && (
+                      <p className="text-sm text-red-600 flex items-center">
+                        <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.end_time.message}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
-          )}
 
-          {/* Enhanced Action Buttons */}
-          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleBack}
-              className="px-6 hover:bg-gray-50"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-            <Button 
-              type="submit" 
-              className="px-8 bg-orange-600 hover:bg-orange-700 flex items-center space-x-2"
-              disabled={submitting || courses.length === 0 || mcqProblems.length === 0}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Creating Contest...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  <span>Create Contest</span>
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
+            {/* Enhanced Problem Selection */}
+            <Card className="shadow-lg border-0">
+              <CardHeader className="border-b bg-gray-50">
+                <CardTitle className="flex items-center space-x-2 text-xl">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <BookOpen className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <span>Select Questions</span>
+                </CardTitle>
+                <p className="text-gray-600 text-sm mt-1">Choose questions from your question bank and set their marks</p>
+                <div className="flex items-center space-x-2 mt-4">
+                  <Search className="h-4 w-4 text-gray-500" />
+                  <Input
+                    placeholder="Search questions by title or description..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent className="p-8">
+                {filteredMCQs.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Search className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500">No questions match your search criteria.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredMCQs.map((mcq) => {
+                      const isSelected = selectedProblems.some(p => p.problem_id === mcq.id);
+                      const selectedProblem = selectedProblems.find(p => p.problem_id === mcq.id);
+
+                      return (
+                        <div key={mcq.id} className={`border rounded-lg p-6 transition-all ${isSelected ? 'border-orange-300 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                          <div className="flex items-start space-x-4">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => 
+                                handleProblemSelect(mcq, checked as boolean)
+                              }
+                              className="mt-1 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                            />
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900 mb-2">{mcq.title}</h4>
+                              <p className="text-sm text-gray-600 mb-3">{mcq.description}</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">A</span>
+                                  <span>{mcq.option_a}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">B</span>
+                                  <span>{mcq.option_b}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">C</span>
+                                  <span>{mcq.option_c}</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">D</span>
+                                  <span>{mcq.option_d}</span>
+                                </div>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <div className="flex items-center space-x-2 bg-white p-3 rounded-lg border border-orange-200">
+                                <Label className="text-sm font-medium">Marks:</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="10"
+                                  value={selectedProblem?.marks || 1}
+                                  onChange={(e) => 
+                                    updateProblemMarks(mcq.id, parseInt(e.target.value) || 1)
+                                  }
+                                  className="w-20 h-8 text-center border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Enhanced Selected Problems Summary */}
+            {selectedProblems.length > 0 && (
+              <Card className="shadow-lg border-0 border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-emerald-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2 text-green-900">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                    <span>Contest Summary</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center p-4 bg-white rounded-lg border border-green-100">
+                      <div className="text-2xl font-bold text-green-600">{selectedProblems.length}</div>
+                      <div className="text-sm text-green-800">Questions Selected</div>
+                    </div>
+                    <div className="text-center p-4 bg-white rounded-lg border border-green-100">
+                      <div className="text-2xl font-bold text-green-600">{totalMarks}</div>
+                      <div className="text-sm text-green-800">Total Marks</div>
+                    </div>
+                    <div className="text-center p-4 bg-white rounded-lg border border-green-100">
+                      <div className="text-2xl font-bold text-green-600">{Math.round(totalMarks / selectedProblems.length * 10) / 10}</div>
+                      <div className="text-sm text-green-800">Average Marks</div>
+                    </div>
+                  </div>
+                  <div className="mt-6">
+                    <h4 className="font-semibold text-green-900 mb-3">Selected Questions:</h4>
+                    <div className="space-y-2">
+                      {selectedProblems.map((p) => (
+                        <div key={p.problem_id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-green-100">
+                          <span className="font-medium text-gray-900">{p.problem.title}</span>
+                          <Badge className="bg-green-100 text-green-800">{p.marks} marks</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Enhanced Action Buttons */}
+            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleBack}
+                className="px-6 hover:bg-gray-50"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="px-8 bg-orange-600 hover:bg-orange-700 flex items-center space-x-2"
+                disabled={submitting || courses.length === 0 || mcqProblems.length === 0}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Creating Contest...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    <span>Create Contest</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
     </Layout>
   );

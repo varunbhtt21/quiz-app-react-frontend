@@ -8,11 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X, Tag } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 import { Badge } from '@/components/ui/badge';
 import { API_SERVER_URL } from '../../config/api';
+import TagSelector from '../../components/tags/TagSelector';
 
 interface MCQFormData {
   title: string;
@@ -36,12 +37,21 @@ interface MCQData {
   correct_options: string[];
   explanation?: string;
   image_url?: string;
+  tags?: TagData[];
+}
+
+interface TagData {
+  id: string;
+  name: string;
+  color: string;
+  description?: string;
 }
 
 const EditMCQ = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [correctOptions, setCorrectOptions] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<TagData[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -68,6 +78,11 @@ const EditMCQ = () => {
       setValue('option_d', mcqData.option_d);
       setValue('explanation', mcqData.explanation || '');
       setCorrectOptions(mcqData.correct_options || []);
+      
+      // Set tags if available
+      if (mcqData.tags) {
+        setSelectedTags(mcqData.tags);
+      }
       
       // Set image preview if exists
       if (mcqData.image_url) {
@@ -126,22 +141,19 @@ const EditMCQ = () => {
 
     try {
       setUpdating(true);
-      const formData = new FormData();
-      formData.append('title', data.title);
-      formData.append('description', data.description);
-      formData.append('option_a', data.option_a);
-      formData.append('option_b', data.option_b);
-      formData.append('option_c', data.option_c);
-      formData.append('option_d', data.option_d);
-      formData.append('correct_options', JSON.stringify(correctOptions));
-      if (data.explanation) {
-        formData.append('explanation', data.explanation);
-      }
-      if (data.image) {
-        formData.append('image', data.image);
-      }
+      const mcqData = {
+        title: data.title,
+        description: data.description,
+        option_a: data.option_a,
+        option_b: data.option_b,
+        option_c: data.option_c,
+        option_d: data.option_d,
+        correct_options: correctOptions,
+        explanation: data.explanation || undefined,
+        tag_ids: selectedTags.map(tag => tag.id)
+      };
       
-      await apiService.updateMCQ(id, formData);
+      await apiService.updateMCQ(id, mcqData);
       
       toast({
         title: "Success",
@@ -217,6 +229,31 @@ const EditMCQ = () => {
                 {errors.description && (
                   <p className="text-sm text-red-600">{errors.description.message}</p>
                 )}
+              </div>
+
+              {/* Tags Section */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Label className="text-sm font-semibold text-gray-700 flex items-center">
+                    <Tag className="h-4 w-4 mr-2" />
+                    Tags *
+                  </Label>
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    Strongly recommended
+                  </span>
+                </div>
+                <TagSelector
+                  selectedTags={selectedTags}
+                  onTagsChange={setSelectedTags}
+                  placeholder="Search and select tags for this question..."
+                  required={false}
+                  maxTags={5}
+                  allowCreate={true}
+                />
+                <p className="text-xs text-gray-500 flex items-center">
+                  <Tag className="h-3 w-3 mr-1" />
+                  Tags help organize and filter questions in your question bank. Add them now or assign later.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

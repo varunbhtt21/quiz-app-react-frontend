@@ -99,6 +99,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const loginWithOTPLESS = async (accessToken: string, userData: any) => {
     try {
+      // First, store the token so API calls can use it immediately
+      localStorage.setItem('access_token', accessToken);
+      
       const userInfo: User = {
         id: userData.id,
         mobile: userData.mobile,
@@ -110,11 +113,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         auth_provider: 'otpless'
       };
       
+      // Update localStorage first
+      localStorage.setItem('user', JSON.stringify(userInfo));
+      
+      // Then update React state - this ensures localStorage is always consistent
       setToken(accessToken);
       setUser(userInfo);
-      localStorage.setItem('access_token', accessToken);
-      localStorage.setItem('user', JSON.stringify(userInfo));
+      
+      // Small delay to ensure state updates are processed
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
     } catch (error) {
+      // Clean up on error
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
       throw error;
     }
   };
@@ -145,7 +157,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isAuthenticated: !!user && !!token,
     isAdmin: user?.role === 'admin',
     isStudent: user?.role === 'student',
-    needsProfileCompletion: !user?.profile_completed, // Check for ANY user with incomplete profile
+    needsProfileCompletion: !!user && !user.profile_completed, // Check for authenticated user with incomplete profile
     login,
     loginWithOTPLESS,
     updateUserProfile,

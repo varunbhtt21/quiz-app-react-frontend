@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, BookOpen, Home, FileText, Trophy, GraduationCap, BarChart3, HelpCircle, Menu, X, Sparkles, ChevronDown, Bell, Settings, Users } from 'lucide-react';
+import { LogOut, User, BookOpen, Home, FileText, Trophy, GraduationCap, BarChart3, HelpCircle, Menu, X, Sparkles, ChevronDown, Bell, Settings, Users, Tag } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
@@ -50,6 +50,15 @@ const Layout = ({ children }: LayoutProps) => {
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       borderColor: 'border-purple-200'
+    },
+    { 
+      label: 'Tag Management', 
+      path: '/admin/tags', 
+      icon: Tag,
+      description: 'Organize questions with tags and categories',
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-50',
+      borderColor: 'border-teal-200'
     },
     { 
       label: 'Courses', 

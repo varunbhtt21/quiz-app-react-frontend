@@ -77,12 +77,23 @@ const OTPLESSLogin: React.FC<OTPLESSLoginProps> = ({ onLoginSuccess, onShowTradi
 
     console.log("🔧 Setting up OTPLESS callback with App ID:", appId);
 
+    // Clear any existing callback first to prevent interference
+    if (window.otpless) {
+      delete window.otpless;
+    }
+
     // Set up the global callback function as per official documentation
     window.otpless = (otplessUser: any) => {
       console.log("🎯 OTPLESS Callback Received:", otplessUser);
       
       if (otplessUser.status === "SUCCESS" && otplessUser.token) {
         console.log("✅ Authentication successful, token received:", otplessUser.token);
+        
+        // Clear the callback immediately after success to prevent duplicate calls
+        if (window.otpless) {
+          delete window.otpless;
+        }
+        
         handleAuthSuccess(otplessUser.token);
       } else {
         console.error("❌ Authentication failed:", otplessUser);
@@ -119,18 +130,26 @@ const OTPLESSLogin: React.FC<OTPLESSLoginProps> = ({ onLoginSuccess, onShowTradi
         user: verificationResult.user
       });
 
-      // Pass the result to parent component
+      // Pass the result to parent component - add small delay to ensure state consistency
+      await new Promise(resolve => setTimeout(resolve, 100));
       onLoginSuccess(verificationResult.access_token, verificationResult.user);
+      
     } catch (error: any) {
       console.error('❌ Token verification failed:', error);
+      
+      // Reset loading state on error
+      setIsLoading(false);
+      
       toast({
         title: "🚫 Verification Failed",
         description: error.message || "Please try again.",
         variant: "destructive",
       });
-    } finally {
-      console.log("🏁 Setting isLoading to false");
-      setIsLoading(false);
+      
+      // Re-setup callback for retry
+      setTimeout(() => {
+        setupOTPLESSCallback();
+      }, 1000);
     }
   };
 

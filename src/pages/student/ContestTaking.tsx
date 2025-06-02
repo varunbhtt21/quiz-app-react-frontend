@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, ArrowRight, Clock, Send, Loader2, AlertTriangle, CheckCircle, Circle, BookOpen, Target, Timer, Award } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Send, Loader2, AlertTriangle, CheckCircle, Circle, BookOpen, Target, Timer, Award, Check, CheckSquare } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 import { API_SERVER_URL } from '../../config/api';
@@ -23,6 +23,7 @@ interface ContestProblem {
   marks: number;
   order_index: number;
   image_url?: string;
+  correct_options: string[];
 }
 
 interface Contest {
@@ -46,6 +47,9 @@ const ContestTaking = () => {
   const [submitting, setSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [existingSubmission, setExistingSubmission] = useState<any>(null);
+  const [detailedSubmission, setDetailedSubmission] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [currentReviewQuestion, setCurrentReviewQuestion] = useState(0);
 
   useEffect(() => {
     if (id) {
@@ -72,9 +76,22 @@ const ContestTaking = () => {
         console.log('No existing submission found, student can take contest');
       }
       
+      // Check if contest has started yet
+      const startTime = new Date(contestData.start_time.replace('Z', ''));
+      const now = new Date();
+      
+      if (now < startTime) {
+        toast({
+          title: "Contest Not Started",
+          description: "This contest hasn't started yet. Please wait for the start time.",
+          variant: "destructive"
+        });
+        navigate('/student/dashboard');
+        return;
+      }
+      
       // Calculate time remaining based on contest end time
       const endTime = new Date(contestData.end_time.replace('Z', ''));
-      const now = new Date();
       const remainingMs = endTime.getTime() - now.getTime();
       const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
       
@@ -83,7 +100,7 @@ const ContestTaking = () => {
       if (remainingSeconds <= 0) {
         toast({
           title: "Contest Ended",
-          description: "This contest has already ended.",
+          description: "This contest has already ended and you didn't submit your answers.",
           variant: "destructive"
         });
         navigate('/student/dashboard');
@@ -119,6 +136,29 @@ const ContestTaking = () => {
     }
   }, [timeRemaining]);
 
+  useEffect(() => {
+    const loadDetailedSubmission = async () => {
+      if (hasSubmitted && existingSubmission && id) {
+        try {
+          setLoadingDetails(true);
+          const details = await apiService.getMySubmissionDetails(id) as any;
+          setDetailedSubmission(details);
+        } catch (error) {
+          console.error('Error loading detailed submission:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load submission details",
+            variant: "destructive"
+          });
+        } finally {
+          setLoadingDetails(false);
+        }
+      }
+    };
+
+    loadDetailedSubmission();
+  }, [hasSubmitted, existingSubmission, id]);
+
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -126,11 +166,29 @@ const ContestTaking = () => {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getQuestionType = (correctOptions: string[]) => {
+    return correctOptions.length > 1 ? 'Multiple Choice' : 'Single Choice';
+  };
+
+  const getQuestionTypeColor = (correctOptions: string[]) => {
+    return correctOptions.length > 1 
+      ? 'bg-purple-100 text-purple-800 border-purple-200' 
+      : 'bg-blue-100 text-blue-800 border-blue-200';
+  };
+
   const handleAnswerChange = (questionId: string, option: string, checked: boolean) => {
     setAnswers(prev => {
       const currentAnswers = prev[questionId] || [];
+      const currentProblem = contest?.problems.find(p => p.id === questionId);
+      
       if (checked) {
-        return { ...prev, [questionId]: [...currentAnswers, option] };
+        // For single choice questions, replace the existing answer
+        if (currentProblem && currentProblem.correct_options.length === 1) {
+          return { ...prev, [questionId]: [option] };
+        } else {
+          // For multiple choice questions, add to existing answers
+          return { ...prev, [questionId]: [...currentAnswers, option] };
+        }
       } else {
         return { ...prev, [questionId]: currentAnswers.filter(ans => ans !== option) };
       }
@@ -216,6 +274,42 @@ const ContestTaking = () => {
 
   // Show submission result if already submitted
   if (hasSubmitted && existingSubmission) {
+    if (loadingDetails) {
+      return (
+        <Layout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="flex items-center space-x-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Loading submission details...</span>
+            </div>
+          </div>
+        </Layout>
+      );
+    }
+
+    if (!detailedSubmission) {
+      return (
+        <Layout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Card className="w-full max-w-md shadow-lg border-0">
+              <CardContent className="text-center py-12">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <AlertTriangle className="h-10 w-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-3">Unable to Load Submission Details</h3>
+                <p className="text-gray-500 mb-6">
+                  There was an issue loading your submission details. Please try refreshing the page.
+                </p>
+                <Button onClick={() => window.location.reload()} className="px-6">
+                  Refresh Page
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </Layout>
+      );
+    }
+
     const percentage = existingSubmission.max_possible_score > 0 
       ? (existingSubmission.total_score / existingSubmission.max_possible_score * 100) 
       : 0;
@@ -240,6 +334,53 @@ const ContestTaking = () => {
       return `${minutes}m`;
     };
 
+    const problems = detailedSubmission.problems || [];
+    const currentProblem = problems[currentReviewQuestion];
+    const totalQuestions = problems.length;
+    const correctAnswers = problems.filter((p: any) => p.is_correct).length;
+    const incorrectAnswers = totalQuestions - correctAnswers;
+
+    // Safety check - if no problems, show error
+    if (totalQuestions === 0) {
+      return (
+        <Layout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Card className="w-full max-w-md shadow-lg border-0">
+              <CardContent className="text-center py-12">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <BookOpen className="h-10 w-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-3">No Questions Found</h3>
+                <p className="text-gray-500 mb-6">
+                  This contest doesn't have any questions to review.
+                </p>
+                <Button onClick={() => navigate('/student/dashboard')} className="px-6">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </Layout>
+      );
+    }
+
+    // Safety check - ensure currentReviewQuestion is within bounds
+    if (currentReviewQuestion >= totalQuestions) {
+      setCurrentReviewQuestion(0);
+      return null; // Re-render with correct index
+    }
+
+    const getAnswerStatusColor = (isCorrect: boolean) => {
+      return isCorrect 
+        ? 'bg-green-100 text-green-800 border-green-200' 
+        : 'bg-red-100 text-red-800 border-red-200';
+    };
+
+    const formatAnswers = (answers: string[]) => {
+      return answers.map(opt => `${opt}`).join(', ') || 'No answer';
+    };
+
     return (
       <Layout>
         <div className="space-y-6">
@@ -250,9 +391,9 @@ const ContestTaking = () => {
                 <div>
                   <div className="flex items-center space-x-2 mb-2">
                     <CheckCircle className="h-6 w-6" />
-                    <h1 className="text-2xl font-bold">Contest Completed! ✅</h1>
+                    <h1 className="text-2xl font-bold">Submission Review ✅</h1>
                   </div>
-                  <p className="text-green-100 text-lg">{contest.name}</p>
+                  <p className="text-green-100 text-lg">{detailedSubmission.contest.name}</p>
                 </div>
                 <div className="text-right">
                   <div className="text-3xl font-bold text-white">
@@ -277,124 +418,369 @@ const ContestTaking = () => {
             
             <Card className="shadow-md border-0">
               <CardContent className="p-6 text-center">
+                <div className="text-3xl font-bold text-green-600 mb-2">
+                  {correctAnswers}
+                </div>
+                <p className="text-sm text-gray-600">Correct Answers</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="shadow-md border-0">
+              <CardContent className="p-6 text-center">
+                <div className="text-3xl font-bold text-red-600 mb-2">
+                  {incorrectAnswers}
+                </div>
+                <p className="text-sm text-gray-600">Incorrect Answers</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="shadow-md border-0">
+              <CardContent className="p-6 text-center">
                 <div className={`text-3xl font-bold mb-2 ${color}`}>
                   {grade}
                 </div>
                 <p className="text-sm text-gray-600">Grade</p>
               </CardContent>
             </Card>
-            
-            <Card className="shadow-md border-0">
-              <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-2">
-                  {formatTimeTaken(existingSubmission.time_taken_seconds)}
-                </div>
-                <p className="text-sm text-gray-600">Time Taken</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="shadow-md border-0">
-              <CardContent className="p-6 text-center">
-                <div className="text-3xl font-bold text-orange-600 mb-2">
-                  {new Date(existingSubmission.submitted_at).toLocaleDateString()}
-                </div>
-                <p className="text-sm text-gray-600">Submitted On</p>
-              </CardContent>
-            </Card>
           </div>
 
-          {/* Detailed Results */}
-          <Card className="shadow-lg border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Award className="h-5 w-5 text-yellow-600" />
-                <span>Your Performance</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className={`p-6 rounded-xl border-2 ${borderColor} ${bgColor}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-gray-900">Final Result</h3>
-                    <Badge className={`${bgColor} ${color} ${borderColor} border font-bold text-lg px-4 py-2`}>
-                      Grade {grade}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+          {/* Question Review Interface */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Question Area */}
+            <div className="lg:col-span-3">
+              <Card className="shadow-lg border-0">
+                <CardHeader className="border-b bg-gray-50">
+                  <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm text-gray-600">Score</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {existingSubmission.total_score} / {existingSubmission.max_possible_score}
+                      <CardTitle className="text-xl">
+                        Question {currentReviewQuestion + 1} of {totalQuestions}
+                      </CardTitle>
+                      <p className="text-gray-600 text-sm mt-1">
+                        Review your answer and see the explanation
                       </p>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Percentage</p>
-                      <p className="text-2xl font-bold text-gray-900">{percentage.toFixed(1)}%</p>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Progress value={percentage} className="h-3" />
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    <span className="font-medium text-blue-900">Submission Details</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-blue-700">Submitted:</span>
-                      <p className="font-medium text-blue-900">
-                        {new Date(existingSubmission.submitted_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-blue-700">Time Taken:</span>
-                      <p className="font-medium text-blue-900">
-                        {formatTimeTaken(existingSubmission.time_taken_seconds)}
-                      </p>
-                    </div>
-                  </div>
-                  {existingSubmission.is_auto_submitted && (
-                    <div className="mt-2">
-                      <Badge variant="outline" className="text-orange-600 border-orange-200">
-                        Auto-submitted due to time limit
+                    <div className="flex items-center space-x-2">
+                      <Badge className={`${getAnswerStatusColor(currentProblem?.is_correct)} px-3 py-1.5 font-medium`}>
+                        {currentProblem?.is_correct ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Correct
+                          </>
+                        ) : (
+                          <>
+                            <Circle className="h-4 w-4 mr-1" />
+                            Incorrect
+                          </>
+                        )}
+                      </Badge>
+                      <Badge className="bg-blue-100 text-blue-800 border-blue-200 px-3 py-1.5 font-medium">
+                        <Award className="h-4 w-4 mr-1" />
+                        {currentProblem?.score}/{currentProblem?.max_score} mark{currentProblem?.max_score !== 1 ? 's' : ''}
                       </Badge>
                     </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-8">
+                  {/* Question Content */}
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4 leading-relaxed">
+                      {currentProblem?.title}
+                    </h3>
+                    <div className="prose prose-gray max-w-none">
+                      <p className="text-gray-700 text-lg leading-relaxed">
+                        {currentProblem?.description}
+                      </p>
+                    </div>
+                    
+                    {/* Question Image */}
+                    {currentProblem?.image_url && (
+                      <div className="mt-6 flex justify-center">
+                        <img
+                          src={currentProblem.image_url.startsWith('http') ? currentProblem.image_url : `${API_SERVER_URL}${currentProblem.image_url}`}
+                          alt="Question image"
+                          className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                          style={{ maxHeight: '400px' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Options Review */}
+                  <div className="space-y-4 mb-8">
+                    {currentProblem && [
+                      { key: 'A', text: currentProblem.option_a },
+                      { key: 'B', text: currentProblem.option_b },
+                      { key: 'C', text: currentProblem.option_c },
+                      { key: 'D', text: currentProblem.option_d }
+                    ].map((option) => {
+                      const isStudentAnswer = currentProblem?.student_answer?.includes(option.key);
+                      const isCorrectAnswer = currentProblem?.correct_options?.includes(option.key);
+                      
+                      let borderColor = 'border-gray-200';
+                      let bgColor = 'bg-white';
+                      let textColor = 'text-gray-900';
+                      
+                      if (isCorrectAnswer && isStudentAnswer) {
+                        // Student got it right
+                        borderColor = 'border-green-500';
+                        bgColor = 'bg-green-50';
+                        textColor = 'text-green-900';
+                      } else if (isCorrectAnswer && !isStudentAnswer) {
+                        // Correct answer not selected by student
+                        borderColor = 'border-green-300';
+                        bgColor = 'bg-green-25';
+                        textColor = 'text-green-700';
+                      } else if (!isCorrectAnswer && isStudentAnswer) {
+                        // Student selected wrong answer
+                        borderColor = 'border-red-500';
+                        bgColor = 'bg-red-50';
+                        textColor = 'text-red-900';
+                      }
+                      
+                      return (
+                        <div 
+                          key={option.key} 
+                          className={`p-4 border-2 rounded-xl ${borderColor} ${bgColor} relative`}
+                        >
+                          <div className="flex items-start space-x-4">
+                            <div className={`flex-shrink-0 w-8 h-8 border-2 rounded-full flex items-center justify-center font-bold text-sm ${
+                              isCorrectAnswer 
+                                ? 'border-green-500 bg-green-500 text-white'
+                                : isStudentAnswer
+                                ? 'border-red-500 bg-red-500 text-white'
+                                : 'border-gray-300 text-gray-600'
+                            }`}>
+                              {isCorrectAnswer ? (
+                                <CheckCircle className="h-5 w-5" />
+                              ) : isStudentAnswer ? (
+                                <Circle className="h-5 w-5" />
+                              ) : (
+                                option.key
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <Label className={`text-base leading-relaxed ${textColor}`}>
+                                <span className="font-semibold mr-2">{option.key})</span>
+                                {option.text}
+                              </Label>
+                            </div>
+                            {/* Status indicators */}
+                            <div className="flex flex-col items-end space-y-1">
+                              {isStudentAnswer && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={isCorrectAnswer ? 'border-green-300 text-green-700' : 'border-red-300 text-red-700'}
+                                >
+                                  Your Answer
+                                </Badge>
+                              )}
+                              {isCorrectAnswer && (
+                                <Badge variant="outline" className="border-green-300 text-green-700">
+                                  Correct Answer
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Answer Summary */}
+                  <div className="bg-gray-50 rounded-lg p-6 mb-8">
+                    <h4 className="font-bold text-gray-900 mb-4">Answer Summary</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-sm font-medium text-gray-600 block mb-1">Your Answer:</span>
+                        <p className={`font-medium ${currentProblem?.student_answer?.length > 0 ? 'text-gray-900' : 'text-gray-500'}`}>
+                          {formatAnswers(currentProblem?.student_answer || [])}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-600 block mb-1">Correct Answer:</span>
+                        <p className="font-medium text-green-700">
+                          {formatAnswers(currentProblem?.correct_options || [])}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Explanation */}
+                  {currentProblem?.explanation && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <BookOpen className="h-5 w-5 text-blue-600" />
+                        <span className="font-bold text-blue-900">Explanation</span>
+                      </div>
+                      <div className="prose prose-blue max-w-none">
+                        <p className="text-blue-800 leading-relaxed">
+                          {currentProblem.explanation}
+                        </p>
+                      </div>
+                    </div>
                   )}
-                </div>
 
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-2">What's Next?</h4>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• You have successfully completed this contest</li>
-                    <li>• Your results have been recorded and cannot be changed</li>
-                    <li>• Check your overall performance in the Results section</li>
-                    <li>• Look for new contests on your dashboard</li>
-                  </ul>
-                </div>
+                  {/* Navigation */}
+                  <div className="flex justify-between items-center pt-6 border-t">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setCurrentReviewQuestion(Math.max(0, currentReviewQuestion - 1))}
+                      disabled={currentReviewQuestion === 0}
+                      className="px-6 py-3"
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Previous
+                    </Button>
 
-                <div className="flex space-x-4">
-                  <Button 
-                    onClick={() => navigate('/student/dashboard')}
-                    className="flex-1"
-                  >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to Dashboard
-                  </Button>
-                  <Button 
-                    onClick={() => navigate('/student/results')}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Award className="h-4 w-4 mr-2" />
-                    View All Results
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <Circle className={`h-3 w-3 ${currentProblem?.is_correct ? 'fill-green-500 text-green-500' : 'fill-red-500 text-red-500'}`} />
+                      <span>{currentProblem?.is_correct ? 'Correct' : 'Incorrect'}</span>
+                    </div>
+
+                    <Button 
+                      variant="outline"
+                      onClick={() => setCurrentReviewQuestion(Math.min(totalQuestions - 1, currentReviewQuestion + 1))}
+                      disabled={currentReviewQuestion === totalQuestions - 1}
+                      className="px-6 py-3"
+                    >
+                      Next
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Review Sidebar */}
+            <div className="space-y-6">
+              {/* Question Navigator */}
+              <Card className="shadow-lg border-0">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <BookOpen className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <span>Review Navigator</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-4 gap-2 mb-6">
+                    {problems.map((_: any, index: number) => {
+                      const problem = problems[index];
+                      const isCurrent = index === currentReviewQuestion;
+                      
+                      return (
+                        <Button
+                          key={index}
+                          size="sm"
+                          variant={isCurrent ? "default" : "outline"}
+                          className={`h-12 w-12 text-sm font-bold transition-all duration-200 ${
+                            isCurrent 
+                              ? 'ring-2 ring-blue-500 bg-blue-600 hover:bg-blue-700 text-white' :
+                            problem?.is_correct 
+                              ? 'bg-green-100 text-green-800 border-green-400 hover:bg-green-200' 
+                              : 'bg-red-100 text-red-800 border-red-400 hover:bg-red-200'
+                          }`}
+                          onClick={() => setCurrentReviewQuestion(index)}
+                        >
+                          {index + 1}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Review Summary */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-3 bg-green-50 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{correctAnswers}</div>
+                        <div className="text-xs text-green-700">Correct</div>
+                      </div>
+                      <div className="text-center p-3 bg-red-50 rounded-lg">
+                        <div className="text-2xl font-bold text-red-600">{incorrectAnswers}</div>
+                        <div className="text-xs text-red-700">Incorrect</div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Award className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-900">Performance</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-blue-700">Score:</span>
+                          <span className="font-bold text-blue-900">{existingSubmission.total_score}/{existingSubmission.max_possible_score}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-blue-700">Percentage:</span>
+                          <span className="font-bold text-blue-900">{percentage.toFixed(1)}%</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-blue-700">Grade:</span>
+                          <span className={`font-bold ${color}`}>{grade}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contest Info */}
+              <Card className="shadow-lg border-0">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                      <Clock className="h-5 w-5 text-indigo-600" />
+                    </div>
+                    <span>Submission Info</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700">Submitted At</span>
+                      <span className="font-bold text-gray-900 text-sm">
+                        {new Date(existingSubmission.submitted_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700">Time Taken</span>
+                      <span className="font-bold text-gray-900">{formatTimeTaken(existingSubmission.time_taken_seconds)}</span>
+                    </div>
+                    {existingSubmission.is_auto_submitted && (
+                      <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <span className="text-sm font-medium text-orange-800">Auto-submitted due to time limit</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <Card className="shadow-lg border-0">
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={() => navigate('/student/dashboard')}
+                      className="w-full"
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to Dashboard
+                    </Button>
+                    <Button 
+                      onClick={() => navigate('/student/results')}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      <Award className="h-4 w-4 mr-2" />
+                      View All Results
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </Layout>
     );
@@ -481,12 +867,31 @@ const ContestTaking = () => {
                     <CardTitle className="text-xl">
                       Question {currentQuestion + 1} of {contest.problems.length}
                     </CardTitle>
-                    <p className="text-gray-600 text-sm mt-1">Choose the correct answer(s)</p>
+                    <p className="text-gray-600 text-sm mt-1">
+                      {currentProblem.correct_options.length > 1 
+                        ? 'Choose all correct answers (multiple selections allowed)' 
+                        : 'Choose the correct answer (single selection only)'}
+                    </p>
                   </div>
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 px-4 py-2">
-                    <Award className="h-4 w-4 mr-1" />
-                    {currentProblem.marks} mark{currentProblem.marks !== 1 ? 's' : ''}
-                  </Badge>
+                  <div className="flex items-center space-x-2">
+                    <Badge className={`${getQuestionTypeColor(currentProblem.correct_options)} px-3 py-1.5 font-medium`}>
+                      {currentProblem.correct_options.length > 1 ? (
+                        <>
+                          <CheckSquare className="h-4 w-4 mr-1" />
+                          {getQuestionType(currentProblem.correct_options)}
+                        </>
+                      ) : (
+                        <>
+                          <Check className="h-4 w-4 mr-1" />
+                          {getQuestionType(currentProblem.correct_options)}
+                        </>
+                      )}
+                    </Badge>
+                    <Badge className="bg-green-100 text-green-800 border-green-200 px-3 py-1.5 font-medium">
+                      <Award className="h-4 w-4 mr-1" />
+                      {currentProblem.marks} mark{currentProblem.marks !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="p-8">
@@ -535,12 +940,28 @@ const ContestTaking = () => {
                         onClick={() => handleAnswerChange(currentProblem.id, option.key, !isSelected)}
                       >
                         <div className="flex items-start space-x-4">
-                          <div className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-sm transition-colors ${
-                            isSelected 
-                              ? 'border-blue-500 bg-blue-500 text-white' 
-                              : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
+                          <div className={`flex-shrink-0 w-8 h-8 border-2 flex items-center justify-center font-bold text-sm transition-colors ${
+                            currentProblem.correct_options.length === 1
+                              ? `rounded-full ${  // Radio style for single choice
+                                  isSelected 
+                                    ? 'border-blue-500 bg-blue-500 text-white' 
+                                    : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
+                                }`
+                              : `rounded ${  // Square style for multiple choice
+                                  isSelected 
+                                    ? 'border-blue-500 bg-blue-500 text-white' 
+                                    : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
+                                }`
                           }`}>
-                            {isSelected ? <CheckCircle className="h-5 w-5" /> : option.key}
+                            {isSelected ? (
+                              currentProblem.correct_options.length === 1 ? (
+                                <Circle className="h-4 w-4 fill-current" />
+                              ) : (
+                                <CheckCircle className="h-5 w-5" />
+                              )
+                            ) : (
+                              option.key
+                            )}
                           </div>
                           <div className="flex-1">
                             <Label 
@@ -636,11 +1057,7 @@ const ContestTaking = () => {
                         }`}
                         onClick={() => setCurrentQuestion(index)}
                       >
-                        {isAnswered && !isCurrent && (
-                          <CheckCircle className="h-4 w-4" />
-                        )}
-                        {!isAnswered && !isCurrent && (index + 1)}
-                        {isCurrent && (index + 1)}
+                        {index + 1}
                       </Button>
                     );
                   })}
@@ -665,7 +1082,17 @@ const ContestTaking = () => {
                       <span className="text-sm font-medium text-blue-900">Quick Tips</span>
                     </div>
                     <ul className="text-xs text-blue-800 space-y-1">
-                      <li>• You can select multiple options</li>
+                      {currentProblem.correct_options.length > 1 ? (
+                        <>
+                          <li>• You can select multiple options for this question</li>
+                          <li>• Look for all correct answers</li>
+                        </>
+                      ) : (
+                        <>
+                          <li>• Select only one option for this question</li>
+                          <li>• Choose the best answer</li>
+                        </>
+                      )}
                       <li>• Use the navigator to jump between questions</li>
                       <li>• Review your answers before submitting</li>
                     </ul>

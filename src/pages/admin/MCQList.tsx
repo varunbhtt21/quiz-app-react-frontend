@@ -6,10 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, FileText, Brain, Target, Calendar, Filter, Download, RefreshCw, BookOpen, CheckCircle, Clock, TrendingUp, Upload, FileSpreadsheet, AlertCircle, X, Camera, ImageIcon, Trash } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, FileText, Brain, Target, Calendar, Filter, Download, RefreshCw, BookOpen, CheckCircle, Clock, TrendingUp, Upload, FileSpreadsheet, AlertCircle, X, Camera, ImageIcon, Trash, Tag as TagIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 import { API_SERVER_URL } from '../../config/api';
+import TagSelector from '../../components/tags/TagSelector';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 interface MCQProblem {
   id: string;
@@ -24,6 +27,15 @@ interface MCQProblem {
   image_url?: string;
   created_at: string;
   updated_at: string;
+  tags?: Array<{ id: string; name: string; color: string }>;
+  needs_tags?: boolean;
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  description?: string;
 }
 
 interface ImportResult {
@@ -46,6 +58,13 @@ const MCQList = () => {
   const [showImportResult, setShowImportResult] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+  const [showNeedsTags, setShowNeedsTags] = useState(false);
+
+  // Quick tag assignment modal state
+  const [showQuickTagModal, setShowQuickTagModal] = useState(false);
+  const [selectedMcqForTagging, setSelectedMcqForTagging] = useState<MCQProblem | null>(null);
+  const [selectedTagsForAssignment, setSelectedTagsForAssignment] = useState<Tag[]>([]);
+  const [savingTags, setSavingTags] = useState(false);
 
   useEffect(() => {
     loadMCQs();
@@ -54,7 +73,7 @@ const MCQList = () => {
   const loadMCQs = async () => {
     try {
       setLoading(true);
-      const data = await apiService.getMCQs(0, 1000, searchTerm || undefined) as MCQProblem[];
+      const data = await apiService.getMCQs(0, 1000, searchTerm || undefined, undefined, undefined, undefined, showNeedsTags || undefined) as MCQProblem[];
       setMcqs(data);
     } catch (error) {
       toast({
@@ -73,7 +92,15 @@ const MCQList = () => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  }, [searchTerm, showNeedsTags]);
+
+  const getCorrectOptionsCount = (correctOptions: string) => {
+    try {
+      return JSON.parse(correctOptions).length;
+    } catch {
+      return 1;
+    }
+  };
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`Are you sure you want to delete "${title}"? This action cannot be undone.`)) {
@@ -247,28 +274,90 @@ const MCQList = () => {
     }
   };
 
-  const filteredMcqs = mcqs.filter(mcq =>
-    mcq.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    mcq.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Quick tag assignment functions
+  const handleQuickTagAssignment = (mcq: MCQProblem) => {
+    setSelectedMcqForTagging(mcq);
+    setSelectedTagsForAssignment(mcq.tags || []);
+    setShowQuickTagModal(true);
+  };
 
-  const recentMcqs = mcqs.filter(mcq => {
-    const createdDate = new Date(mcq.created_at);
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return createdDate > weekAgo;
-  }).length;
-
-  const getCorrectOptionsCount = (correctOptions: string) => {
-    try {
-      return JSON.parse(correctOptions).length;
-    } catch {
-      return 1;
+  const handleSaveQuickTags = async () => {
+    if (!selectedMcqForTagging || selectedTagsForAssignment.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one tag.",
+        variant: "destructive"
+      });
+      return;
     }
+
+    try {
+      setSavingTags(true);
+      
+      const tagIds = selectedTagsForAssignment.map(tag => tag.id);
+      
+      await apiService.updateMCQ(selectedMcqForTagging.id, {
+        tag_ids: tagIds
+      });
+
+      // Update the local state
+      setMcqs(prevMcqs => 
+        prevMcqs.map(mcq => 
+          mcq.id === selectedMcqForTagging.id 
+            ? { 
+                ...mcq, 
+                tags: selectedTagsForAssignment,
+                needs_tags: false // Mark as no longer needing tags
+              }
+            : mcq
+        )
+      );
+
+      setShowQuickTagModal(false);
+      setSelectedMcqForTagging(null);
+      setSelectedTagsForAssignment([]);
+
+      toast({
+        title: "Success",
+        description: `Tags assigned to "${selectedMcqForTagging.title}" successfully!`,
+      });
+    } catch (error: any) {
+      console.error('Error assigning tags:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign tags",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingTags(false);
+    }
+  };
+
+  const handleCloseQuickTagModal = () => {
+    setShowQuickTagModal(false);
+    setSelectedMcqForTagging(null);
+    setSelectedTagsForAssignment([]);
   };
 
   const multipleAnswerQuestions = mcqs.filter(mcq => getCorrectOptionsCount(mcq.correct_options) > 1).length;
   const questionsWithImages = mcqs.filter(mcq => mcq.image_url && mcq.image_url.trim()).length;
+  const questionsNeedingTags = mcqs.filter(mcq => mcq.needs_tags === true).length;
+  const recentMcqs = mcqs.filter(mcq => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return new Date(mcq.created_at) > weekAgo;
+  }).length;
+
+  // Filter MCQs based on search and tag status
+  const filteredMcqs = mcqs.filter(mcq => {
+    const matchesSearch = !searchTerm || 
+      mcq.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      mcq.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesTagFilter = !showNeedsTags || mcq.needs_tags === true;
+    
+    return matchesSearch && matchesTagFilter;
+  });
 
   if (loading) {
     return (
@@ -318,6 +407,46 @@ const MCQList = () => {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
         </div>
+
+        {/* Tag Assignment Reminder Banner */}
+        {questionsNeedingTags > 0 && !showNeedsTags && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-red-900">
+                      {questionsNeedingTags} question{questionsNeedingTags > 1 ? 's' : ''} need{questionsNeedingTags === 1 ? 's' : ''} tag assignment
+                    </p>
+                    <p className="text-sm text-red-700">
+                      Questions without tags cannot be used in contests. Click "Need Tags Only" to assign tags.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowNeedsTags(true)}
+                    className="border-red-300 text-red-700 hover:bg-red-100"
+                  >
+                    Show Questions Needing Tags
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => navigate('/admin/tags')}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Manage Tags
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Enhanced Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -370,14 +499,14 @@ const MCQList = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">With Images</p>
-                  <p className="text-3xl font-bold text-orange-600">
-                    {questionsWithImages}
+                  <p className="text-sm font-medium text-gray-600 mb-1">Need Tags</p>
+                  <p className="text-3xl font-bold text-red-600">
+                    {questionsNeedingTags}
                   </p>
-                  <p className="text-xs text-gray-500">Have visual content</p>
+                  <p className="text-xs text-gray-500">Require tag assignment</p>
                 </div>
-                <div className="p-3 rounded-xl bg-orange-50">
-                  <ImageIcon className="h-6 w-6 text-orange-600" />
+                <div className="p-3 rounded-xl bg-red-50">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
                 </div>
               </div>
             </CardContent>
@@ -456,6 +585,19 @@ const MCQList = () => {
                   className="pl-10 h-11"
                 />
               </div>
+              <Button
+                variant={showNeedsTags ? "default" : "outline"}
+                onClick={() => setShowNeedsTags(!showNeedsTags)}
+                className={`h-11 ${showNeedsTags ? 'bg-red-600 hover:bg-red-700 text-white' : 'hover:bg-red-50 hover:border-red-300 text-red-600'}`}
+              >
+                <AlertCircle className="h-4 w-4 mr-2" />
+                {showNeedsTags ? 'Show All' : 'Need Tags Only'}
+                {questionsNeedingTags > 0 && !showNeedsTags && (
+                  <Badge className="ml-2 bg-red-100 text-red-800 border-red-200">
+                    {questionsNeedingTags}
+                  </Badge>
+                )}
+              </Button>
             </div>
 
             {/* Results Summary */}
@@ -464,18 +606,33 @@ const MCQList = () => {
                 <Brain className="h-4 w-4 text-green-600" />
                 <span className="text-sm font-medium text-green-900">
                   Showing {filteredMcqs.length} of {mcqs.length} questions
+                  {showNeedsTags && (
+                    <span className="text-red-600 ml-1">(needing tags only)</span>
+                  )}
                 </span>
               </div>
-              {searchTerm && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setSearchTerm('')}
-                  className="text-green-600 hover:text-green-700 hover:bg-green-100"
-                >
-                  Clear search
-                </Button>
-              )}
+              <div className="flex items-center space-x-2">
+                {showNeedsTags && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowNeedsTags(false)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-100"
+                  >
+                    Show all questions
+                  </Button>
+                )}
+                {searchTerm && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSearchTerm('')}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-100"
+                  >
+                    Clear search
+                  </Button>
+                )}
+              </div>
             </div>
 
             {filteredMcqs.length === 0 ? (
@@ -629,16 +786,49 @@ const MCQList = () => {
                           </TableCell>
                           <TableCell>
                             <div className="space-y-1">
-                              <Badge 
-                                className="bg-green-100 text-green-800 border-green-200 border font-medium"
-                              >
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Active
-                              </Badge>
+                              {mcq.needs_tags ? (
+                                <Button
+                                  variant="ghost"
+                                  className="h-auto p-0 hover:bg-transparent"
+                                  onClick={() => handleQuickTagAssignment(mcq)}
+                                >
+                                  <Badge 
+                                    className="bg-red-100 text-red-800 border-red-200 border font-medium hover:bg-red-200 cursor-pointer transition-colors"
+                                  >
+                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                    Needs Tags
+                                  </Badge>
+                                </Button>
+                              ) : (
+                                <Badge 
+                                  className="bg-green-100 text-green-800 border-green-200 border font-medium"
+                                >
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Active
+                                </Badge>
+                              )}
                               {hasExplanation && (
                                 <div className="flex items-center text-xs text-gray-500">
                                   <BookOpen className="h-3 w-3 mr-1" />
                                   Has explanation
+                                </div>
+                              )}
+                              {mcq.tags && mcq.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {mcq.tags.slice(0, 2).map((tag) => (
+                                    <Badge
+                                      key={tag.id}
+                                      style={{ backgroundColor: tag.color, color: 'white' }}
+                                      className="text-xs text-white"
+                                    >
+                                      {tag.name}
+                                    </Badge>
+                                  ))}
+                                  {mcq.tags.length > 2 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      +{mcq.tags.length - 2}
+                                    </Badge>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -755,8 +945,10 @@ const MCQList = () => {
                   <h4 className="font-semibold text-blue-800 mb-2">Next Steps:</h4>
                   <ul className="text-sm text-blue-700 space-y-1">
                     <li>• Successfully imported questions are now available in your question bank</li>
+                    <li>• <strong>Important:</strong> Questions without tags CANNOT be used in contests</li>
+                    <li>• Use "Need Tags Only" filter to find and assign tags to imported questions</li>
                     <li>• Review and fix any errors in your CSV file before re-importing</li>
-                    <li>• You can now use these questions in contests and assessments</li>
+                    <li>• Questions must have at least one tag assigned before they can be used in contests</li>
                   </ul>
                 </div>
               </CardContent>
@@ -830,6 +1022,7 @@ const MCQList = () => {
                       <li>• <strong>Options:</strong> All four options A, B, C, D must be provided</li>
                       <li>• <strong>Correct Options:</strong> Use A, B, C, or D. For multiple answers, use "A,C" format</li>
                       <li>• <strong>Explanation:</strong> Optional detailed explanation</li>
+                      <li>• <strong>Tags:</strong> Not required during import - but questions MUST have tags to be used in contests</li>
                     </ul>
                   </div>
 
@@ -858,6 +1051,78 @@ const MCQList = () => {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Quick Tag Assignment Modal */}
+        {showQuickTagModal && selectedMcqForTagging && (
+          <Dialog open={showQuickTagModal} onOpenChange={handleCloseQuickTagModal}>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <TagIcon className="h-5 w-5 text-blue-600" />
+                  Assign Tags to Question
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-4 py-4">
+                {/* Question Preview */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">{selectedMcqForTagging.title}</h4>
+                  <p className="text-sm text-gray-600 line-clamp-2">{selectedMcqForTagging.description}</p>
+                  <div className="mt-2">
+                    <Badge variant="outline" className="text-xs">
+                      ID: {selectedMcqForTagging.id.slice(0, 8)}...
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Tag Selector */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Select Tags <span className="text-red-500">*</span>
+                  </Label>
+                  <TagSelector
+                    selectedTags={selectedTagsForAssignment}
+                    onTagsChange={setSelectedTagsForAssignment}
+                    placeholder="Search and select tags for this question..."
+                    required={true}
+                    maxTags={10}
+                    allowCreate={true}
+                  />
+                  <p className="text-xs text-gray-500">
+                    Questions must have at least one tag to be used in contests.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseQuickTagModal}
+                  disabled={savingTags}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveQuickTags}
+                  disabled={savingTags || selectedTagsForAssignment.length === 0}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {savingTags ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <TagIcon className="h-4 w-4 mr-2" />
+                      Assign Tags
+                    </>
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </Layout>
