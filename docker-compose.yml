@@ -1,0 +1,46 @@
+services:
+  quiz-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+        - VITE_OTPLESS_APP_ID=${VITE_OTPLESS_APP_ID}
+        - VITE_NODE_ENV=${VITE_NODE_ENV}
+    container_name: quiz-app-frontend-prod
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      # Mount custom nginx config
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 120s
+    labels:
+      - "quiz-app=frontend"
+      - "environment=production"
+
+networks:
+  quiz-network:
+    external: true 
