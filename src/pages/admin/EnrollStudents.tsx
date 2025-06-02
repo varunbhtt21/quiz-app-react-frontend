@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Layout from '../../components/common/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Save, Search, Users, Home, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Save, Search, Users, Home, ChevronRight, Upload, FileSpreadsheet, CheckCircle, AlertCircle, X, RefreshCw } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 
@@ -24,9 +25,18 @@ interface Course {
   description: string;
 }
 
+interface CSVEnrollmentResult {
+  total_emails: number;
+  successful_enrollments: number;
+  failed_enrollments: number;
+  errors: string[];
+  enrolled_students: { email: string; name: string; id: string; status: string }[];
+}
+
 const EnrollStudents = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +44,9 @@ const EnrollStudents = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [csvUploading, setCsvUploading] = useState(false);
+  const [csvResult, setCsvResult] = useState<CSVEnrollmentResult | null>(null);
+  const [showCsvResult, setShowCsvResult] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -136,6 +149,84 @@ const EnrollStudents = () => {
     navigate(`/admin/courses/${id}`);
   };
 
+  const handleDownloadCSVTemplate = async () => {
+    if (!id) return;
+    
+    try {
+      const blob = await apiService.downloadCourseEnrollmentTemplate(id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `course_enrollment_template_${course?.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Success",
+        description: "CSV template downloaded successfully"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download template",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCSVFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleCSVEnrollment(file);
+    }
+  };
+
+  const handleCSVEnrollment = async (file: File) => {
+    if (!id) return;
+    
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: "Error",
+        description: "Please select a CSV file (.csv)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setCsvUploading(true);
+      const result = await apiService.bulkEnrollStudentsCSV(id, file) as CSVEnrollmentResult;
+      setCsvResult(result);
+      setShowCsvResult(true);
+      
+      if (result.successful_enrollments > 0) {
+        toast({
+          title: "Enrollment Completed",
+          description: `Successfully enrolled ${result.successful_enrollments} students${result.failed_enrollments > 0 ? ` (${result.failed_enrollments} failed)` : ''}`
+        });
+      } else {
+        toast({
+          title: "Enrollment Failed",
+          description: "No students were enrolled. Please check the file format and data.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to enroll students from CSV",
+        variant: "destructive"
+      });
+    } finally {
+      setCsvUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -201,16 +292,166 @@ const EnrollStudents = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">Enroll Students in {course.name}</h1>
-            <p className="text-gray-600">Select students from the system to enroll in this course</p>
+            <p className="text-gray-600">Select students manually or upload a CSV file with email addresses</p>
           </div>
         </div>
+
+        {/* CSV Upload Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileSpreadsheet className="h-5 w-5 text-green-600" />
+              <span>Bulk Enrollment via CSV</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start space-x-2">
+                  <div className="text-blue-600 mt-0.5">
+                    <FileSpreadsheet className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-medium text-blue-900 mb-1">CSV Format Instructions</h4>
+                    <p className="text-sm text-blue-700 mb-2">
+                      Upload a CSV file with a single 'email' column containing student email addresses.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleDownloadCSVTemplate}
+                      className="text-blue-600 border-blue-300 hover:bg-blue-100"
+                    >
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Download CSV Template
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCSVFileUpload}
+                  className="hidden"
+                />
+                <Button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={csvUploading}
+                  className="flex items-center space-x-2"
+                >
+                  {csvUploading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  <span>{csvUploading ? 'Uploading...' : 'Upload CSV File'}</span>
+                </Button>
+                <span className="text-sm text-gray-500">
+                  Supports CSV files with email addresses
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CSV Result Modal */}
+        {showCsvResult && csvResult && (
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center space-x-2">
+                  {csvResult.successful_enrollments > 0 ? (
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-red-600" />
+                  )}
+                  <span>CSV Enrollment Results</span>
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowCsvResult(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-gray-900">{csvResult.total_emails}</div>
+                    <div className="text-sm text-gray-600">Total Emails</div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{csvResult.successful_enrollments}</div>
+                    <div className="text-sm text-green-700">Enrolled</div>
+                  </div>
+                  <div className="text-center p-3 bg-red-50 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">{csvResult.failed_enrollments}</div>
+                    <div className="text-sm text-red-700">Failed</div>
+                  </div>
+                </div>
+
+                {/* Successfully Enrolled Students */}
+                {csvResult.enrolled_students.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Successfully Enrolled Students</h4>
+                    <div className="max-h-40 overflow-y-auto border rounded-lg">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {csvResult.enrolled_students.map((student, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="font-medium">{student.email}</TableCell>
+                              <TableCell>{student.name}</TableCell>
+                              <TableCell>
+                                <Badge variant={student.status === 'enrolled' ? 'default' : 'secondary'}>
+                                  {student.status === 'enrolled' ? 'New Enrollment' : 'Reactivated'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Errors */}
+                {csvResult.errors.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-red-900 mb-2">Errors</h4>
+                    <div className="max-h-32 overflow-y-auto bg-red-50 border border-red-200 rounded-lg p-3">
+                      <ul className="space-y-1">
+                        {csvResult.errors.map((error, index) => (
+                          <li key={index} className="text-sm text-red-700">• {error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle className="flex items-center space-x-2">
                 <Users className="h-5 w-5 text-blue-600" />
-                <span>Available Students</span>
+                <span>Manual Selection - Available Students</span>
               </CardTitle>
               <div className="text-sm text-gray-500">
                 {selectedStudents.size} of {filteredStudents.length} selected

@@ -63,6 +63,16 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async completeAdminProfile(data: { name: string; mobile: string }) {
+    const response = await fetch(`${API_BASE_URL}/auth/complete-profile`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    return this.handleResponse(response);
+  }
+
   // MCQ Management
   async getMCQs(skip = 0, limit = 100, search?: string) {
     const params = new URLSearchParams({
@@ -244,6 +254,33 @@ class ApiService {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({ student_ids: studentIds }),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async downloadCourseEnrollmentTemplate(courseId: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/courses/${courseId}/enrollment-template`, {
+      headers: this.getHeaders(),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    return response.blob();
+  }
+
+  async bulkEnrollStudentsCSV(courseId: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${API_BASE_URL}/courses/${courseId}/enroll-csv`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+      },
+      body: formData,
     });
     
     return this.handleResponse(response);

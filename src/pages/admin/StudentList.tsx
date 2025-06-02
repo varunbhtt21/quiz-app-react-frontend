@@ -15,6 +15,7 @@ interface User {
   email: string;
   role: string;
   is_active: boolean;
+  registration_status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   created_at: string;
   updated_at: string;
 }
@@ -24,7 +25,7 @@ interface ImportResult {
   successful: number;
   failed: number;
   errors: string[];
-  created_students: { id: string; email: string }[];
+  preregistered_students: { id: string; email: string; status: string }[];
 }
 
 const UserList = () => {
@@ -36,6 +37,7 @@ const UserList = () => {
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'student'>('all');
+  const [registrationStatusFilter, setRegistrationStatusFilter] = useState<'all' | 'PENDING' | 'ACTIVE' | 'SUSPENDED'>('all');
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showImportResult, setShowImportResult] = useState(false);
@@ -46,7 +48,7 @@ const UserList = () => {
   }, []);
 
   useEffect(() => {
-    // Filter users based on search term, status, and role
+    // Filter users based on search term, status, role, and registration status
     let filtered = users;
     
     if (searchTerm.trim() !== '') {
@@ -65,8 +67,12 @@ const UserList = () => {
       filtered = filtered.filter(user => user.role === roleFilter);
     }
 
+    if (registrationStatusFilter !== 'all') {
+      filtered = filtered.filter(user => user.registration_status === registrationStatusFilter);
+    }
+
     setFilteredUsers(filtered);
-  }, [users, searchTerm, statusFilter, roleFilter]);
+  }, [users, searchTerm, statusFilter, roleFilter, registrationStatusFilter]);
 
   const loadUsers = async () => {
     try {
@@ -205,6 +211,9 @@ const UserList = () => {
   const inactiveUsers = users.filter(u => u.is_active === false).length;
   const adminUsers = users.filter(u => u.role === 'admin').length;
   const studentUsers = users.filter(u => u.role === 'student').length;
+  const pendingUsers = users.filter(u => u.registration_status === 'PENDING').length;
+  const activeRegistrationUsers = users.filter(u => u.registration_status === 'ACTIVE').length;
+  const suspendedUsers = users.filter(u => u.registration_status === 'SUSPENDED').length;
   const recentUsers = users.filter(u => {
     const createdDate = new Date(u.created_at);
     const weekAgo = new Date();
@@ -262,7 +271,7 @@ const UserList = () => {
         </div>
 
         {/* Enhanced Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -273,21 +282,6 @@ const UserList = () => {
                 </div>
                 <div className="p-3 rounded-xl bg-blue-50">
                   <Users className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Administrators</p>
-                  <p className="text-3xl font-bold text-red-600">{adminUsers}</p>
-                  <p className="text-xs text-gray-500">System admins</p>
-                </div>
-                <div className="p-3 rounded-xl bg-red-50">
-                  <Shield className="h-6 w-6 text-red-600" />
                 </div>
               </div>
             </CardContent>
@@ -312,12 +306,12 @@ const UserList = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Active Users</p>
-                  <p className="text-3xl font-bold text-green-600">{activeUsers}</p>
-                  <p className="text-xs text-gray-500">Currently active</p>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Administrators</p>
+                  <p className="text-3xl font-bold text-red-600">{adminUsers}</p>
+                  <p className="text-xs text-gray-500">System admins</p>
                 </div>
-                <div className="p-3 rounded-xl bg-green-50">
-                  <UserCheck className="h-6 w-6 text-green-600" />
+                <div className="p-3 rounded-xl bg-red-50">
+                  <Shield className="h-6 w-6 text-red-600" />
                 </div>
               </div>
             </CardContent>
@@ -333,6 +327,54 @@ const UserList = () => {
                 </div>
                 <div className="p-3 rounded-xl bg-purple-50">
                   <Calendar className="h-6 w-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Registration Status Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Pre-registered</p>
+                  <p className="text-3xl font-bold text-orange-600">{pendingUsers}</p>
+                  <p className="text-xs text-gray-500">Awaiting first login</p>
+                </div>
+                <div className="p-3 rounded-xl bg-orange-50">
+                  <UserX className="h-6 w-6 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Active Registration</p>
+                  <p className="text-3xl font-bold text-green-600">{activeRegistrationUsers}</p>
+                  <p className="text-xs text-gray-500">Completed profiles</p>
+                </div>
+                <div className="p-3 rounded-xl bg-green-50">
+                  <UserCheck className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Suspended</p>
+                  <p className="text-3xl font-bold text-red-600">{suspendedUsers}</p>
+                  <p className="text-xs text-gray-500">Account suspended</p>
+                </div>
+                <div className="p-3 rounded-xl bg-red-50">
+                  <UserX className="h-6 w-6 text-red-600" />
                 </div>
               </div>
             </CardContent>
@@ -483,6 +525,51 @@ const UserList = () => {
                   </Button>
                 </div>
               </div>
+
+              {/* Registration Status Filter */}
+              <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-3">
+                <div className="flex items-center space-x-2">
+                  <Activity className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-600">Registration Status:</span>
+                </div>
+                <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-1">
+                  <Button
+                    size="sm"
+                    variant={registrationStatusFilter === 'all' ? 'default' : 'outline'}
+                    onClick={() => setRegistrationStatusFilter('all')}
+                    className="h-9 w-full sm:w-auto"
+                  >
+                    All Status ({users.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={registrationStatusFilter === 'PENDING' ? 'default' : 'outline'}
+                    onClick={() => setRegistrationStatusFilter('PENDING')}
+                    className="h-9 w-full sm:w-auto bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200"
+                  >
+                    <UserX className="h-3 w-3 mr-1" />
+                    Pre-registered ({pendingUsers})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={registrationStatusFilter === 'ACTIVE' ? 'default' : 'outline'}
+                    onClick={() => setRegistrationStatusFilter('ACTIVE')}
+                    className="h-9 w-full sm:w-auto bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                  >
+                    <UserCheck className="h-3 w-3 mr-1" />
+                    Active ({activeRegistrationUsers})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={registrationStatusFilter === 'SUSPENDED' ? 'default' : 'outline'}
+                    onClick={() => setRegistrationStatusFilter('SUSPENDED')}
+                    className="h-9 w-full sm:w-auto bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                  >
+                    <UserX className="h-3 w-3 mr-1" />
+                    Suspended ({suspendedUsers})
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {/* Results Summary */}
@@ -493,7 +580,7 @@ const UserList = () => {
                   Showing {filteredUsers.length} of {users.length} users
                 </span>
               </div>
-              {(searchTerm || statusFilter !== 'all' || roleFilter !== 'all') && (
+              {(searchTerm || statusFilter !== 'all' || roleFilter !== 'all' || registrationStatusFilter !== 'all') && (
                 <Button
                   size="sm"
                   variant="ghost"
@@ -501,6 +588,7 @@ const UserList = () => {
                     setSearchTerm('');
                     setStatusFilter('all');
                     setRoleFilter('all');
+                    setRegistrationStatusFilter('all');
                   }}
                   className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 w-full sm:w-auto"
                 >
@@ -515,15 +603,15 @@ const UserList = () => {
                   <Users className="h-12 w-12 text-gray-400" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-600 mb-3">
-                  {searchTerm || statusFilter !== 'all' || roleFilter !== 'all' ? 'No users found' : 'No users yet'}
+                  {searchTerm || statusFilter !== 'all' || roleFilter !== 'all' || registrationStatusFilter !== 'all' ? 'No users found' : 'No users yet'}
                 </h3>
                 <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  {searchTerm || statusFilter !== 'all' || roleFilter !== 'all' 
+                  {searchTerm || statusFilter !== 'all' || roleFilter !== 'all' || registrationStatusFilter !== 'all'
                     ? 'Try adjusting your search terms or filters to find what you\'re looking for.' 
                     : 'Get started by creating your first user account to begin managing enrollments.'
                   }
                 </p>
-                {!searchTerm && statusFilter === 'all' && roleFilter === 'all' && (
+                {!searchTerm && statusFilter === 'all' && roleFilter === 'all' && registrationStatusFilter === 'all' && (
                   <Button 
                     onClick={() => navigate('/admin/users/create')}
                     className="px-6"
@@ -595,6 +683,40 @@ const UserList = () => {
                           </div>
                         </div>
                         
+                        {/* Registration Status for Mobile */}
+                        <div className="mb-3">
+                          <div className="flex items-center text-gray-600 mb-1 text-xs">
+                            <Activity className="h-3 w-3 mr-1" />
+                            Registration Status
+                          </div>
+                          <Badge 
+                            className={`${
+                              user.registration_status === 'PENDING'
+                                ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                : user.registration_status === 'ACTIVE'
+                                ? 'bg-green-100 text-green-800 border-green-200'
+                                : 'bg-red-100 text-red-800 border-red-200'
+                            } border font-medium text-xs`}
+                          >
+                            {user.registration_status === 'PENDING' ? (
+                              <>
+                                <UserX className="h-2 w-2 mr-1" />
+                                Pre-registered
+                              </>
+                            ) : user.registration_status === 'ACTIVE' ? (
+                              <>
+                                <UserCheck className="h-2 w-2 mr-1" />
+                                Active Registration
+                              </>
+                            ) : (
+                              <>
+                                <UserX className="h-2 w-2 mr-1" />
+                                Suspended
+                              </>
+                            )}
+                          </Badge>
+                        </div>
+                        
                         <div className="flex space-x-2">
                           <Button
                             size="sm"
@@ -648,6 +770,7 @@ const UserList = () => {
                         <TableHead className="font-semibold">User</TableHead>
                         <TableHead className="font-semibold">Role</TableHead>
                         <TableHead className="font-semibold">Status</TableHead>
+                        <TableHead className="font-semibold">Registration Status</TableHead>
                         <TableHead className="font-semibold">Registration</TableHead>
                         <TableHead className="font-semibold">Last Activity</TableHead>
                         <TableHead className="font-semibold text-center">Actions</TableHead>
@@ -707,6 +830,34 @@ const UserList = () => {
                                 <>
                                   <UserX className="h-3 w-3 mr-1" />
                                   Inactive
+                                </>
+                              )}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge 
+                              className={`${
+                                user.registration_status === 'PENDING'
+                                  ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                  : user.registration_status === 'ACTIVE'
+                                  ? 'bg-green-100 text-green-800 border-green-200'
+                                  : 'bg-red-100 text-red-800 border-red-200'
+                              } border font-medium`}
+                            >
+                              {user.registration_status === 'PENDING' ? (
+                                <>
+                                  <UserX className="h-3 w-3 mr-1" />
+                                  Pre-registered
+                                </>
+                              ) : user.registration_status === 'ACTIVE' ? (
+                                <>
+                                  <UserCheck className="h-3 w-3 mr-1" />
+                                  Active
+                                </>
+                              ) : (
+                                <>
+                                  <UserX className="h-3 w-3 mr-1" />
+                                  Suspended
                                 </>
                               )}
                             </Badge>
@@ -815,14 +966,14 @@ const UserList = () => {
                 </div>
 
                 {/* Successfully Created Users */}
-                {importResult.created_students.length > 0 && (
+                {importResult.preregistered_students.length > 0 && (
                   <div className="mb-6">
                     <h3 className="text-lg font-semibold text-green-800 mb-3 flex items-center">
                       <CheckCircle className="h-5 w-5 mr-2" />
-                      Successfully Created Users ({importResult.created_students.length})
+                      Successfully Created Users ({importResult.preregistered_students.length})
                     </h3>
                     <div className="bg-green-50 rounded-lg p-4 max-h-40 overflow-y-auto">
-                      {importResult.created_students.map((user, index) => (
+                      {importResult.preregistered_students.map((user, index) => (
                         <div key={user.id} className="flex items-center justify-between py-2 border-b border-green-200 last:border-b-0">
                           <span className="text-green-800">{user.email}</span>
                           <Badge className="bg-green-100 text-green-800">Created</Badge>
@@ -853,9 +1004,10 @@ const UserList = () => {
                 <div className="bg-blue-50 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-800 mb-2">Next Steps:</h4>
                   <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Pre-registered students will use OTP authentication for their first login</li>
+                    <li>• Students must complete their profile (name + email) on first login</li>
                     <li>• Successfully imported users can now be enrolled in courses</li>
                     <li>• Review and fix any errors in your CSV file before re-importing</li>
-                    <li>• Users will receive their login credentials via email (if configured)</li>
                   </ul>
                 </div>
               </CardContent>
@@ -902,8 +1054,8 @@ const UserList = () => {
                       <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                         <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
                         <div>
-                          <p className="font-medium text-green-900">Replace sample data with real user information</p>
-                          <p className="text-sm text-green-700">Keep the column headers (email, password) unchanged</p>
+                          <p className="font-medium text-green-900">Replace sample data with real student email addresses</p>
+                          <p className="text-sm text-green-700">Only email addresses are needed - students will use OTP authentication</p>
                         </div>
                       </div>
                       
@@ -925,9 +1077,9 @@ const UserList = () => {
                     </h4>
                     <ul className="text-sm text-yellow-700 space-y-1">
                       <li>• <strong>Email:</strong> Must be valid email addresses (contain @ and .)</li>
-                      <li>• <strong>Password:</strong> Minimum 6 characters long</li>
                       <li>• <strong>Format:</strong> Save as .csv file format</li>
-                      <li>• <strong>Headers:</strong> Do not modify column names (email, password)</li>
+                      <li>• <strong>Headers:</strong> Do not modify column name (email)</li>
+                      <li>• <strong>Authentication:</strong> Students will use OTP login (no passwords needed)</li>
                     </ul>
                   </div>
 
@@ -935,10 +1087,10 @@ const UserList = () => {
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <h4 className="font-semibold text-green-800 mb-2">💡 Tips for Success</h4>
                     <ul className="text-sm text-green-700 space-y-1">
-                      <li>• Remove all sample data before adding real user information</li>
-                      <li>• Each row represents one user</li>
+                      <li>• Remove all sample data before adding real student email addresses</li>
+                      <li>• Each row represents one student for pre-registration</li>
                       <li>• Duplicate emails will be automatically skipped</li>
-                      <li>• You can add as many users as needed</li>
+                      <li>• Students will complete their profile on first OTP login</li>
                       <li>• Use spreadsheet software like Excel, Google Sheets, or any text editor</li>
                     </ul>
                   </div>
@@ -947,10 +1099,10 @@ const UserList = () => {
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                     <h4 className="font-semibold text-gray-800 mb-2">📋 Expected Format</h4>
                     <div className="bg-white p-3 rounded border font-mono text-sm">
-                      <div className="font-bold border-b pb-1 mb-2">email,password</div>
-                      <div>john.doe@university.edu,securepass123</div>
-                      <div>jane.smith@university.edu,mypassword456</div>
-                      <div>mike.wilson@university.edu,strongpass789</div>
+                      <div className="font-bold border-b pb-1 mb-2">email</div>
+                      <div>student1@university.edu</div>
+                      <div>student2@university.edu</div>
+                      <div>student3@university.edu</div>
                     </div>
                   </div>
                 </div>

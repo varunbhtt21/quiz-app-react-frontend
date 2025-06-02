@@ -3,10 +3,14 @@ import { apiService } from '../services/api';
 
 interface User {
   id: string;
-  email: string;
+  email?: string;
+  mobile?: string;
+  name?: string;
   role: 'admin' | 'student';
   is_active: boolean;
-  course_id?: string;
+  course_ids?: string[];
+  profile_completed?: boolean;
+  auth_provider?: 'traditional' | 'otpless';
 }
 
 interface LoginResponse {
@@ -23,7 +27,10 @@ interface AuthState {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isStudent: boolean;
+  needsProfileCompletion: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithOTPLESS: (token: string, userData: any) => Promise<void>;
+  updateUserProfile: (userData: any) => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -73,20 +80,55 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const response = await apiService.login(email, password) as LoginResponse;
       
-      const userData: User = {
-        id: response.user_id,
-        email: response.email,
-        role: response.role,
-        is_active: true,
-        course_id: undefined
-      };
+      // Store token in localStorage FIRST so getCurrentUser() can use it
+      localStorage.setItem('access_token', response.access_token);
+      
+      // Now get actual user data from backend with the stored token
+      const actualUserData = await apiService.getCurrentUser() as User;
       
       setToken(response.access_token);
-      setUser(userData);
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(actualUserData);
+      localStorage.setItem('user', JSON.stringify(actualUserData));
+    } catch (error) {
+      // Clean up if anything fails
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
+      throw error;
+    }
+  };
+
+  const loginWithOTPLESS = async (accessToken: string, userData: any) => {
+    try {
+      const userInfo: User = {
+        id: userData.id,
+        mobile: userData.mobile,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role || 'student',
+        is_active: true,
+        profile_completed: userData.profile_completed || false,
+        auth_provider: 'otpless'
+      };
+      
+      setToken(accessToken);
+      setUser(userInfo);
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('user', JSON.stringify(userInfo));
     } catch (error) {
       throw error;
+    }
+  };
+
+  const updateUserProfile = (updatedUserData: any) => {
+    if (user) {
+      const updatedUser: User = {
+        ...user,
+        ...updatedUserData,
+        profile_completed: true
+      };
+      
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
     }
   };
 
@@ -103,7 +145,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isAuthenticated: !!user && !!token,
     isAdmin: user?.role === 'admin',
     isStudent: user?.role === 'student',
+    needsProfileCompletion: !user?.profile_completed, // Check for ANY user with incomplete profile
     login,
+    loginWithOTPLESS,
+    updateUserProfile,
     logout,
     isLoading,
   };

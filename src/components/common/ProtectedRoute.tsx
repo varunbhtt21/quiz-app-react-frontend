@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -10,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requireAdmin = false, requireStudent = false }: ProtectedRouteProps) => {
-  const { isAuthenticated, isAdmin, isStudent, isLoading } = useAuth();
+  const { isAuthenticated, isAdmin, isStudent, needsProfileCompletion, user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -22,6 +21,14 @@ const ProtectedRoute = ({ children, requireAdmin = false, requireStudent = false
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (needsProfileCompletion) {
+    if (user?.role === 'admin') {
+      return <Navigate to="/admin/complete-profile" replace />;
+    } else {
+      return <Navigate to="/complete-profile" replace />;
+    }
   }
 
   if (requireAdmin && !isAdmin) {

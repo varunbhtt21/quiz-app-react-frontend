@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { BookOpen, Lock, Mail, Eye, EyeOff, Shield, Users, Award, ArrowRight, Sparkles } from 'lucide-react';
+import { BookOpen, Lock, Mail, Eye, EyeOff, Shield, Users, Award, ArrowRight, Sparkles, ArrowLeft } from 'lucide-react';
+import OTPLESSLogin from './OTPLESSLogin';
+import ProfileCompletion from './ProfileCompletion';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -15,7 +17,11 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [currentFeature, setCurrentFeature] = useState(0);
-  const { login } = useAuth();
+  const [showTraditionalLogin, setShowTraditionalLogin] = useState(false);
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  const [tempUserData, setTempUserData] = useState<any>(null);
+  
+  const { login, loginWithOTPLESS, updateUserProfile, needsProfileCompletion } = useAuth();
   const navigate = useNavigate();
 
   const features = [
@@ -32,7 +38,7 @@ const LoginPage = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleTraditionalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -53,6 +59,67 @@ const LoginPage = () => {
       setIsLoading(false);
     }
   };
+
+  const handleOTPLESSSuccess = async (token: string, userData: any) => {
+    try {
+      await loginWithOTPLESS(token, userData);
+      
+      // Check if user needs to complete profile
+      if (!userData.profile_completed) {
+        setTempUserData(userData);
+        setShowProfileCompletion(true);
+        return;
+      }
+
+      toast({
+        title: "🎉 Welcome to QuizMaster!",
+        description: "Login successful. Redirecting to dashboard...",
+      });
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: "🚫 Login Setup Failed",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleProfileComplete = (updatedUser: any) => {
+    updateUserProfile(updatedUser);
+    setShowProfileCompletion(false);
+    
+    toast({
+      title: "🎉 Welcome to QuizMaster!",
+      description: "Your account is ready! Redirecting to dashboard...",
+    });
+    navigate('/');
+  };
+
+  if (showProfileCompletion && tempUserData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-green-500/10 rounded-full filter blur-3xl animate-pulse"></div>
+          <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full filter blur-3xl animate-pulse delay-1000"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/5 rounded-full filter blur-3xl animate-pulse delay-2000"></div>
+        </div>
+
+        {/* Grid Pattern Overlay */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGRlZnM+CjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgo8cGF0aCBkPSJNIDIwIDAgTCAwIDAgMCAyMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDMpIiBzdHJva2Utd2lkdGg9IjEiLz4KPC9wYXR0ZXJuPgo8L2RlZnM+CjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz4KPHN2Zz4K')] opacity-30"></div>
+
+        <div className="relative z-10 min-h-screen flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md">
+            <ProfileCompletion 
+              userData={tempUserData} 
+              onProfileComplete={handleProfileComplete}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -77,7 +144,7 @@ const LoginPage = () => {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-white">QuizMaster</h1>
-                <p className="text-jazzee-300 text-sm font-medium">by Jazzee</p>
+                <p className="text-blue-300 text-sm font-medium">by Jazzee</p>
               </div>
             </div>
 
@@ -129,7 +196,7 @@ const LoginPage = () => {
           </div>
         </div>
 
-        {/* Right Panel - Login Form */}
+        {/* Right Panel - Login Forms */}
         <div className="w-full lg:w-1/2 xl:w-2/5 flex items-center justify-center px-6 py-12">
           <div className="w-full max-w-md">
             {/* Mobile Logo */}
@@ -139,35 +206,43 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <Card className="backdrop-blur-lg bg-white/95 shadow-2xl border-0 overflow-hidden ring-1 ring-jazzee-100">
-              <CardHeader className="text-center pb-6 bg-gradient-to-br from-blue-50 to-purple-50 border-b border-jazzee-100">
+            {!showTraditionalLogin ? (
+              // OTPLESS Login (Primary)
+              <OTPLESSLogin 
+                onLoginSuccess={handleOTPLESSSuccess}
+                onShowTraditionalLogin={() => setShowTraditionalLogin(true)}
+              />
+            ) : (
+              // Traditional Login (Fallback for Admins)
+              <Card className="backdrop-blur-lg bg-white/95 shadow-2xl border-0 overflow-hidden ring-1 ring-orange-100">
+                <CardHeader className="text-center pb-6 bg-gradient-to-br from-orange-50 to-red-50 border-b border-orange-100">
                 <div className="flex items-center justify-center mb-4">
-                  <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Welcome Back
+                    <Badge className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-1">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Admin Access
                   </Badge>
                 </div>
-                <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                  Sign In
+                  <CardTitle className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent mb-2">
+                    Administrator Login
                 </CardTitle>
                 <CardDescription className="text-gray-600">
-                  Access your dashboard and continue learning
+                    Sign in with your admin credentials
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="p-8">
-                <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={handleTraditionalSubmit} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
                     <div className="relative group">
-                      <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                        <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
                       <Input
                         id="email"
                         type="email"
                         placeholder="Enter your email address"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="pl-12 h-12 border-2 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 rounded-xl transition-all duration-300"
+                          className="pl-12 h-12 border-2 border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl transition-all duration-300"
                         required
                       />
                     </div>
@@ -176,14 +251,14 @@ const LoginPage = () => {
                   <div className="space-y-2">
                     <Label htmlFor="password" className="text-gray-700 font-medium">Password</Label>
                     <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                        <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
                       <Input
                         id="password"
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-12 pr-12 h-12 border-2 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 rounded-xl transition-all duration-300"
+                          className="pl-12 pr-12 h-12 border-2 border-gray-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl transition-all duration-300"
                         required
                       />
                       <button
@@ -198,42 +273,41 @@ const LoginPage = () => {
 
                   <Button 
                     type="submit" 
-                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
                     disabled={isLoading}
+                      className="w-full h-14 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
                   >
                     {isLoading ? (
                       <div className="flex items-center space-x-2">
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         <span>Signing In...</span>
                       </div>
                     ) : (
                       <div className="flex items-center space-x-2">
-                        <span>Sign In</span>
-                        <ArrowRight className="h-4 w-4" />
+                          <Shield className="h-6 w-6" />
+                          <span>Sign In as Admin</span>
+                          <ArrowRight className="h-5 w-5" />
                       </div>
                     )}
                   </Button>
                 </form>
 
-                {/* Help Section */}
-                <div className="mt-6 text-center">
-                  <button className="text-sm text-gray-600 hover:text-jazzee-500 transition-colors duration-200 font-medium">
-                    Forgot your password?
-                        </button>
-                  </div>
-
-                <div className="mt-4 text-center">
-                  <div className="text-xs text-gray-500">
-                    Need help? Contact your institution's administrator
+                  {/* Back to OTPLESS */}
+                  <div className="pt-6 border-t border-gray-200 mt-6">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-3">Are you a student?</p>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowTraditionalLogin(false)}
+                        className="w-full border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 transition-all duration-300"
+                        >
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Back to Mobile Login
+                      </Button>
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Footer */}
-            <div className="text-center mt-6 text-gray-400 text-sm">
-              <p>© 2025 <span className="text-jazzee-500 font-medium">Jazzee</span>. All rights reserved.</p>
-            </div>
+            )}
           </div>
         </div>
       </div>

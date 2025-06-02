@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoginPage from "./components/auth/LoginPage";
+import ProfileCompletion from "./components/auth/ProfileCompletion";
+import AdminProfileCompletion from "./components/auth/AdminProfileCompletion";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import StudentDashboard from "./pages/student/StudentDashboard";
@@ -52,6 +54,10 @@ const AppRoutes = () => {
           <LoginPage />
         )
       } />
+      
+      {/* Profile completion routes - no protection needed as they're for authenticated users */}
+      <Route path="/complete-profile" element={<ProfileCompletion />} />
+      <Route path="/admin/complete-profile" element={<AdminProfileCompletion />} />
       
       {/* Default redirect */}
       <Route path="/" element={
