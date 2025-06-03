@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Starting Production Frontend Deployment..."
+echo "🚀 Starting Production Frontend Deployment with HTTPS..."
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -26,6 +26,26 @@ if ! docker info > /dev/null 2>&1; then
     print_error "Docker is not running. Please start Docker and try again."
     exit 1
 fi
+
+# Create SSL directories and certificates
+print_status "Setting up SSL certificates..."
+mkdir -p ssl/certs ssl/private
+
+# Generate self-signed SSL certificate if not exists
+if [ ! -f ssl/certs/nginx-selfsigned.crt ] || [ ! -f ssl/private/nginx-selfsigned.key ]; then
+    print_status "Generating self-signed SSL certificate..."
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout ssl/private/nginx-selfsigned.key \
+        -out ssl/certs/nginx-selfsigned.crt \
+        -subj "/C=IN/ST=State/L=City/O=Silicon Institute/OU=IT Department/CN=13.234.111.169"
+    print_status "SSL certificate generated successfully"
+else
+    print_status "SSL certificate already exists"
+fi
+
+# Set proper permissions
+chmod 600 ssl/private/nginx-selfsigned.key
+chmod 644 ssl/certs/nginx-selfsigned.crt
 
 # Load environment variables
 if [ -f .env ]; then
@@ -53,7 +73,7 @@ print_status "Cleaning up old Docker images..."
 docker image prune -f
 
 # Build and start frontend
-print_status "Building and starting frontend container..."
+print_status "Building and starting frontend container with HTTPS support..."
 docker-compose up --build -d
 
 # Wait for container to be healthy
@@ -73,20 +93,37 @@ for i in {1..30}; do
     fi
 done
 
-# Verify deployment
+# Verify deployment - HTTP (should redirect)
 print_status "Verifying deployment..."
-if curl -s http://localhost:8080/health > /dev/null; then
-    print_status "Frontend health check passed!"
+if curl -s http://localhost:8081/health > /dev/null; then
+    print_status "HTTP health check passed!"
 else
-    print_error "Frontend health check failed!"
+    print_warning "HTTP health check failed (this is expected if redirect is working)"
+fi
+
+# Verify HTTPS deployment
+if curl -s -k https://localhost:8443/health > /dev/null; then
+    print_status "HTTPS health check passed!"
+else
+    print_error "HTTPS health check failed!"
     exit 1
 fi
 
 # Show status
 print_status "Production frontend deployment completed!"
 echo ""
-echo "🌐 Frontend URL: http://13.234.111.169:8080"
-echo "🏥 Health Check: http://localhost:8080/health"
+echo "🌐 Frontend URLs:"
+echo "  HTTP:  http://13.234.111.169:8081  (redirects to HTTPS)"
+echo "  HTTPS: https://13.234.111.169:8443 (main access)"
+echo ""
+echo "🔐 SSL Certificate Info:"
+echo "  Type: Self-signed certificate"
+echo "  Valid for: 365 days"
+echo "  CN: 13.234.111.169"
+echo ""
+echo "🏥 Health Checks:"
+echo "  HTTP:  http://localhost:8081/health"
+echo "  HTTPS: https://localhost:8443/health"
 echo "🔗 Backend URL: ${VITE_API_BASE_URL}"
 echo ""
 echo "📋 Management commands:"
@@ -95,6 +132,7 @@ echo "  docker-compose down            # Stop frontend"
 echo "  docker-compose restart         # Restart frontend"
 echo "  docker-compose ps              # Check status"
 echo "  docker stats quiz-app-frontend-prod  # Monitor resources"
-
-print_status "✅ Frontend is now running in production mode!"
-print_status "Students can access it at: http://13.234.111.169:8080" 
+echo ""
+print_status "✅ Frontend is now running in production mode with HTTPS!"
+print_status "🎯 IMPORTANT: Add https://13.234.111.169:8443 to your OTPLESS dashboard allowed domains"
+print_status "🔒 Students can access it securely at: https://13.234.111.169:8443" 
