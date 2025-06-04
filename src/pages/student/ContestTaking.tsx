@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useParams, NavigateOptions } from 'react-router-dom';
 import Layout from '../../components/common/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, ArrowRight, Clock, Send, Loader2, AlertTriangle, CheckCircle, Circle, BookOpen, Target, Timer, Award, Check, CheckSquare } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Clock, Send, Loader2, AlertTriangle, CheckCircle, Circle, BookOpen, Target, Timer, Award, Check, CheckSquare, Shield } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 import { API_SERVER_URL } from '../../config/api';
@@ -50,6 +50,167 @@ const ContestTaking = () => {
   const [detailedSubmission, setDetailedSubmission] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [currentReviewQuestion, setCurrentReviewQuestion] = useState(0);
+
+  // Simple contest security state
+  const [contestInProgress, setContestInProgress] = useState(false);
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  // Store original navigate function and create guarded version
+  const originalNavigate = useNavigate();
+  const guardedNavigate = useCallback((to: string | number, options?: NavigateOptions) => {
+    if (contestInProgress && !hasSubmitted && !submitting) {
+      const shouldLeave = window.confirm(
+        'You have an active contest in progress. If you leave now, your progress may be lost. Are you sure you want to continue?'
+      );
+      
+      if (shouldLeave) {
+        setContestInProgress(false);
+        if (typeof to === 'number') {
+          originalNavigate(to);
+        } else {
+          originalNavigate(to, options);
+        }
+      }
+      // If not confirmed, do nothing (block navigation)
+    } else {
+      if (typeof to === 'number') {
+        originalNavigate(to);
+      } else {
+        originalNavigate(to, options);
+      }
+    }
+  }, [contestInProgress, hasSubmitted, submitting, originalNavigate]);
+
+  // Force submit when user chooses to navigate away
+  const handleForceSubmit = async (): Promise<void> => {
+    if (!contest) return;
+    
+    try {
+      setSubmitting(true);
+      
+      // Calculate time taken
+      const endTime = new Date(contest.end_time.replace('Z', ''));
+      const now = new Date();
+      const totalContestTime = endTime.getTime() - new Date(contest.start_time.replace('Z', '')).getTime();
+      const timeTaken = Math.floor((totalContestTime - (timeRemaining * 1000)) / 1000);
+
+      await apiService.submitContest(contest.id, answers, timeTaken);
+
+      // Deactivate contest security
+      setContestInProgress(false);
+      setHasSubmitted(true);
+
+      toast({
+        title: "Contest Auto-Submitted",
+        description: "Your answers have been automatically submitted due to navigation away from the contest.",
+        variant: "default"
+      });
+
+    } catch (error) {
+      console.error('Error auto-submitting contest:', error);
+      toast({
+        title: "Error",
+        description: "Failed to auto-submit contest. Please try again.",
+        variant: "destructive"
+      });
+      // Don't allow navigation if submission failed
+      setSubmitting(false);
+      throw error;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Navigation protection for browser back/forward/refresh
+  useEffect(() => {
+    if (!contestInProgress || hasSubmitted || submitting) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'You have an active contest in progress. If you leave now, your answers will be automatically submitted. Are you sure you want to continue?';
+      return e.returnValue;
+    };
+
+    const handlePopState = (e: PopStateEvent) => {
+      const shouldLeave = window.confirm(
+        'You have an active contest in progress. If you leave now, your answers will be automatically submitted. Are you sure you want to continue?'
+      );
+      
+      if (!shouldLeave) {
+        // Push the current state back to prevent navigation
+        window.history.pushState(null, '', window.location.href);
+      } else {
+        // Auto-submit the contest before allowing navigation
+        handleForceSubmit().then(() => {
+          // Allow the navigation after submission
+          setContestInProgress(false);
+        }).catch(() => {
+          // If submission fails, prevent navigation
+          window.history.pushState(null, '', window.location.href);
+        });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    
+    // Add a history entry to detect back button
+    window.history.pushState(null, '', window.location.href);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [contestInProgress, hasSubmitted, submitting]);
+
+  // Global click interceptor for navigation protection
+  useEffect(() => {
+    if (!contestInProgress || hasSubmitted || submitting) return;
+
+    const handleDocumentClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Check if the clicked element or its parent is a navigation element
+      const navElement = target.closest('a[href]') || 
+                        target.closest('button') || 
+                        target.closest('[role="button"]');
+      
+      // Check if it's specifically a navigation button (like Dashboard, etc.)
+      if (navElement && (
+          navElement.textContent?.includes('Dashboard') ||
+          navElement.textContent?.includes('Results') ||
+          navElement.textContent?.includes('Home') ||
+          (navElement as HTMLAnchorElement).href ||
+          navElement.getAttribute('data-nav')
+      )) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        const shouldLeave = window.confirm(
+          'You have an active contest in progress. If you leave now, your answers will be automatically submitted. Are you sure you want to continue?'
+        );
+        
+        if (shouldLeave) {
+          // Auto-submit the contest before allowing navigation
+          handleForceSubmit().then(() => {
+            // Navigate after submission is complete
+            setTimeout(() => {
+              (navElement as HTMLElement).click();
+            }, 500);
+          });
+        }
+      }
+    };
+
+    // Add listener with capture to intercept before other handlers
+    document.addEventListener('click', handleDocumentClick, { capture: true });
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClick, { capture: true });
+    };
+  }, [contestInProgress, hasSubmitted, submitting, handleForceSubmit]);
 
   useEffect(() => {
     if (id) {
@@ -106,6 +267,16 @@ const ContestTaking = () => {
         navigate('/student/dashboard');
         return;
       }
+      
+      // Activate contest security
+      setContestInProgress(true);
+      
+      // Show security notification
+      toast({
+        title: "Contest Security Active",
+        description: "Navigation is now protected. You must submit or complete the contest to leave this page.",
+        variant: "default"
+      });
       
     } catch (error) {
       console.error('Error loading contest:', error);
@@ -209,6 +380,9 @@ const ContestTaking = () => {
 
       await apiService.submitContest(contest.id, answers, timeTaken);
 
+      // Deactivate contest security
+      setContestInProgress(false);
+
       toast({
         title: "Success",
         description: "Contest submitted successfully!"
@@ -228,6 +402,9 @@ const ContestTaking = () => {
   };
 
   const handleAutoSubmit = () => {
+    // Deactivate contest security for auto-submit
+    setContestInProgress(false);
+    
     toast({
       title: "Time's Up!",
       description: "Contest auto-submitted due to time limit"
@@ -828,6 +1005,12 @@ const ContestTaking = () => {
                     <Award className="h-3 w-3 mr-1" />
                     {contest.problems.reduce((sum, p) => sum + p.marks, 0)} Total Marks
                   </Badge>
+                  {contestInProgress && (
+                    <Badge variant="secondary" className="bg-green-500/20 text-green-100 border-green-300/30">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Secure Mode
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className={`text-right p-4 rounded-xl border-2 ${getTimeBackground()}`}>
