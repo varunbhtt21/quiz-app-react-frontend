@@ -39,7 +39,7 @@ interface MCQProblem {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_options: string;
+  correct_options: string[];
   explanation?: string;
   image_url?: string;
   created_at: string;
@@ -264,12 +264,8 @@ const TagManagement = () => {
     });
   };
 
-  const getCorrectOptionsCount = (correctOptions: string) => {
-    try {
-      return JSON.parse(correctOptions).length;
-    } catch {
-      return 1;
-    }
+  const getCorrectOptionsCount = (correctOptions: string[]) => {
+    return Array.isArray(correctOptions) ? correctOptions.length : 1;
   };
 
   const handleDeleteMCQ = async (mcqId: string, mcqTitle: string) => {

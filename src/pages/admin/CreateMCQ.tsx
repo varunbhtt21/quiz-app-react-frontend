@@ -76,6 +76,7 @@ const CreateMCQ = () => {
     }
 
     try {
+      // First create the MCQ without image
       const mcqData = {
         title: data.title,
         description: data.description,
@@ -88,11 +89,27 @@ const CreateMCQ = () => {
         tag_ids: selectedTags.map(tag => tag.id)
       };
       
-      await apiService.createMCQ(mcqData);
+      const createdMCQ = await apiService.createMCQ(mcqData);
+      
+      // If there's an image, upload it
+      if (data.image) {
+        try {
+          await apiService.uploadMCQImage(createdMCQ.id, data.image);
+        } catch (imageError) {
+          // MCQ is created but image upload failed
+          toast({
+            title: "Partial Success",
+            description: "MCQ created successfully, but image upload failed. You can add the image later by editing the question.",
+            variant: "destructive"
+          });
+          navigate('/admin/mcq');
+          return;
+        }
+      }
       
       toast({
         title: "Success",
-        description: "MCQ created successfully"
+        description: data.image ? "MCQ created successfully with image" : "MCQ created successfully"
       });
       
       navigate('/admin/mcq');

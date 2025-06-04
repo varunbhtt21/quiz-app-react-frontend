@@ -19,6 +19,20 @@ interface Student {
   updated_at: string;
 }
 
+interface EnrolledStudent {
+  id: string;
+  email: string;
+  is_active: boolean;
+  enrolled_at: string;
+  enrollment_active: boolean;
+}
+
+interface CourseStudentsResponse {
+  course_id: string;
+  course_name: string;
+  students: EnrolledStudent[];
+}
+
 interface Course {
   id: string;
   name: string;
@@ -38,6 +52,8 @@ const EnrollStudents = () => {
   const { id } = useParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [enrolledStudents, setEnrolledStudents] = useState<EnrolledStudent[]>([]);
+  const [availableStudents, setAvailableStudents] = useState<Student[]>([]);
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
@@ -55,16 +71,27 @@ const EnrollStudents = () => {
   }, [id]);
 
   useEffect(() => {
-    // Filter students based on search term
+    // Filter out enrolled students from all students to get available students
+    if (students.length > 0 && enrolledStudents.length >= 0) {
+      const enrolledStudentIds = new Set(enrolledStudents.map(s => s.id));
+      const available = students.filter(student => 
+        student.is_active && !enrolledStudentIds.has(student.id)
+      );
+      setAvailableStudents(available);
+    }
+  }, [students, enrolledStudents]);
+
+  useEffect(() => {
+    // Filter available students based on search term
     if (searchTerm.trim() === '') {
-      setFilteredStudents(students);
+      setFilteredStudents(availableStudents);
     } else {
-      const filtered = students.filter(student =>
+      const filtered = availableStudents.filter(student =>
         student.email.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredStudents(filtered);
     }
-  }, [students, searchTerm]);
+  }, [availableStudents, searchTerm]);
 
   const loadData = async () => {
     if (!id) return;
@@ -79,6 +106,17 @@ const EnrollStudents = () => {
       // Load all students
       const studentsData = await apiService.getStudents(0, 1000);
       setStudents(Array.isArray(studentsData) ? studentsData.filter(s => s.is_active) : []);
+      
+      // Load currently enrolled students for this course
+      try {
+        const enrolledData = await apiService.getCourseStudents(id) as CourseStudentsResponse;
+        const enrolledStudentsList = enrolledData?.students || [];
+        setEnrolledStudents(enrolledStudentsList);
+      } catch (error) {
+        console.error('Error loading enrolled students:', error);
+        // If we can't load enrolled students, set empty array (show all students)
+        setEnrolledStudents([]);
+      }
       
     } catch (error) {
       toast({
@@ -451,7 +489,7 @@ const EnrollStudents = () => {
             <div className="flex justify-between items-center">
               <CardTitle className="flex items-center space-x-2">
                 <Users className="h-5 w-5 text-blue-600" />
-                <span>Manual Selection - Available Students</span>
+                <span>Manual Selection - Available Students (Not Yet Enrolled)</span>
               </CardTitle>
               <div className="text-sm text-gray-500">
                 {selectedStudents.size} of {filteredStudents.length} selected
@@ -475,10 +513,20 @@ const EnrollStudents = () => {
                 <div className="text-center py-8">
                   <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">
-                    {searchTerm ? 'No students found matching your search' : 'No active students found'}
+                    {searchTerm 
+                      ? 'No available students found matching your search' 
+                      : enrolledStudents.length > 0 
+                        ? 'All active students are already enrolled in this course'
+                        : 'No active students found'
+                    }
                   </p>
                   <p className="text-sm text-gray-400 mt-2">
-                    {searchTerm ? 'Try adjusting your search terms' : 'Create students first to enroll them in courses'}
+                    {searchTerm 
+                      ? 'Try adjusting your search terms' 
+                      : enrolledStudents.length > 0
+                        ? 'Create more students or check if any students need to be activated'
+                        : 'Create students first to enroll them in courses'
+                    }
                   </p>
                 </div>
               ) : (
