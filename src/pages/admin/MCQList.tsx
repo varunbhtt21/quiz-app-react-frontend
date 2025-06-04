@@ -22,7 +22,7 @@ interface MCQProblem {
   option_b: string;
   option_c: string;
   option_d: string;
-  correct_options: string;
+  correct_options: string[];
   explanation?: string;
   image_url?: string;
   created_at: string;
@@ -94,12 +94,8 @@ const MCQList = () => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, showNeedsTags]);
 
-  const getCorrectOptionsCount = (correctOptions: string) => {
-    try {
-      return JSON.parse(correctOptions).length;
-    } catch {
-      return 1;
-    }
+  const getCorrectOptionsCount = (correctOptions: string[]) => {
+    return Array.isArray(correctOptions) ? correctOptions.length : 1;
   };
 
   const handleDelete = async (id: string, title: string) => {

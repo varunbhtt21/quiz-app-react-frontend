@@ -122,7 +122,26 @@ const EditMCQ = () => {
     }
   };
 
-  const removeImage = () => {
+  const removeImage = async () => {
+    if (id && imagePreview && imagePreview.startsWith('http')) {
+      // If there's an existing image on the server, remove it
+      try {
+        await apiService.removeMCQImage(id);
+        toast({
+          title: "Success",
+          description: "Image removed successfully"
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to remove image from server",
+          variant: "destructive"
+        });
+        return; // Don't clear the preview if server removal failed
+      }
+    }
+    
+    // Clear the local preview and form data
     setImagePreview(null);
     setValue('image', undefined);
   };
@@ -141,6 +160,8 @@ const EditMCQ = () => {
 
     try {
       setUpdating(true);
+      
+      // First update the MCQ data
       const mcqData = {
         title: data.title,
         description: data.description,
@@ -155,9 +176,25 @@ const EditMCQ = () => {
       
       await apiService.updateMCQ(id, mcqData);
       
+      // Handle image upload if there's a new image
+      if (data.image) {
+        try {
+          await apiService.uploadMCQImage(id, data.image);
+        } catch (imageError) {
+          // MCQ is updated but image upload failed
+          toast({
+            title: "Partial Success",
+            description: "MCQ updated successfully, but image upload failed. You can try uploading the image again.",
+            variant: "destructive"
+          });
+          navigate('/admin/mcq');
+          return;
+        }
+      }
+      
       toast({
         title: "Success",
-        description: "MCQ updated successfully"
+        description: data.image ? "MCQ updated successfully with new image" : "MCQ updated successfully"
       });
       
       navigate('/admin/mcq');
