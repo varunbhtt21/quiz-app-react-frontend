@@ -443,6 +443,25 @@ class ApiService {
     return this.handleResponse(response);
   }
 
+  async deleteContest(id: string) {
+    const response = await fetch(`${API_BASE_URL}/contests/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async toggleContestStatus(id: string, isActive: boolean) {
+    const response = await fetch(`${API_BASE_URL}/contests/${id}/status`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ is_active: isActive }),
+    });
+    
+    return this.handleResponse(response);
+  }
+
   async submitContest(contestId: string, answers: Record<string, string[]>, timeTaken?: number) {
     const response = await fetch(`${API_BASE_URL}/contests/${contestId}/submit`, {
       method: 'POST',
