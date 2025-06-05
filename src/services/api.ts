@@ -700,6 +700,36 @@ class ApiService {
   async bulkImportUsers(file: File) {
     return this.bulkImportStudents(file);
   }
+
+  // Contest time synchronization and timezone support
+  async getServerTime() {
+    const response = await fetch(`${API_BASE_URL}/contests/time`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async getContestTimeInfo(contestId: string) {
+    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/time`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async autoSubmitContest(contestId: string, answers: Record<string, string[]>, timeTaken?: number) {
+    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/auto-submit`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        answers,
+        time_taken_seconds: timeTaken,
+      }),
+    });
+    
+    return this.handleResponse(response);
+  }
 }
 
 export const apiService = new ApiService(); 

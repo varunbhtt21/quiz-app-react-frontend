@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, NavigateOptions } from 'react-router-dom';
 import Layout from '../../components/common/Layout';
+import ContestTimer from '../../components/common/ContestTimer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,6 +12,8 @@ import { ArrowLeft, ArrowRight, Clock, Send, Loader2, AlertTriangle, CheckCircle
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 import { API_SERVER_URL } from '../../config/api';
+import { useContestTimer } from '../../hooks/useContestTimer';
+import { formatDateTime, formatTimer } from '../../utils/timeUtils';
 
 interface ContestProblem {
   id: string;
@@ -38,11 +41,11 @@ interface Contest {
 const ContestTaking = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  
   const [contest, setContest] = useState<Contest | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
-  const [timeRemaining, setTimeRemaining] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -50,6 +53,17 @@ const ContestTaking = () => {
   const [detailedSubmission, setDetailedSubmission] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [currentReviewQuestion, setCurrentReviewQuestion] = useState(0);
+
+  // Enhanced timer with server synchronization
+  const contestTimer = useContestTimer({
+    contestId: id || '',
+    onTimeExpired: handleAutoSubmit,
+    onStatusChange: (status) => {
+      if (status === 'ended' && !hasSubmitted && !submitting) {
+        handleAutoSubmit();
+      }
+    },
+  });
 
   // Simple contest security state
   const [contestInProgress, setContestInProgress] = useState(false);
@@ -89,11 +103,12 @@ const ContestTaking = () => {
     try {
       setSubmitting(true);
       
-      // Calculate time taken
-      const endTime = new Date(contest.end_time.replace('Z', ''));
-      const now = new Date();
-      const totalContestTime = endTime.getTime() - new Date(contest.start_time.replace('Z', '')).getTime();
-      const timeTaken = Math.floor((totalContestTime - (timeRemaining * 1000)) / 1000);
+      // Calculate time taken using server time
+      const now = contestTimer.serverNow();
+      const startTime = new Date(contest.start_time).getTime();
+      const endTime = new Date(contest.end_time).getTime();
+      const totalContestTime = endTime - startTime;
+      const timeTaken = Math.floor((totalContestTime - (contestTimer.timeRemaining * 1000)) / 1000);
 
       await apiService.submitContest(contest.id, answers, timeTaken);
 
@@ -237,26 +252,27 @@ const ContestTaking = () => {
         console.log('No existing submission found, student can take contest');
       }
       
-      // Check if contest has started yet
-      const startTime = new Date(contestData.start_time.replace('Z', ''));
-      const now = new Date();
+      // Use server time for accurate timing validation
+      const now = contestTimer.serverNow();
+      const startTime = new Date(contestData.start_time).getTime();
+      const endTime = new Date(contestData.end_time).getTime();
       
       if (now < startTime) {
+        const timeToStart = Math.ceil((startTime - now) / 1000);
         toast({
           title: "Contest Not Started",
-          description: "This contest hasn't started yet. Please wait for the start time.",
+          description: `This contest will start in ${Math.ceil(timeToStart / 60)} minutes. Please wait for the start time.`,
           variant: "destructive"
         });
         navigate('/student/dashboard');
         return;
       }
       
-      // Calculate time remaining based on contest end time
-      const endTime = new Date(contestData.end_time.replace('Z', ''));
-      const remainingMs = endTime.getTime() - now.getTime();
+      // Calculate time remaining based on server-synchronized time
+      const remainingMs = endTime - now;
       const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
       
-      setTimeRemaining(remainingSeconds);
+      contestTimer.setTimeRemaining(remainingSeconds);
       
       if (remainingSeconds <= 0) {
         toast({
@@ -266,6 +282,15 @@ const ContestTaking = () => {
         });
         navigate('/student/dashboard');
         return;
+      }
+      
+      // Show server time sync status
+      if (!contestTimer.isConnected) {
+        toast({
+          title: "Time Sync Warning",
+          description: "Unable to sync with server time. Contest timing may be inaccurate.",
+          variant: "destructive"
+        });
       }
       
       // Activate contest security
@@ -292,9 +317,9 @@ const ContestTaking = () => {
   };
 
   useEffect(() => {
-    if (timeRemaining > 0) {
+    if (contestTimer.timeRemaining > 0) {
       const timer = setInterval(() => {
-        setTimeRemaining((prev) => {
+        contestTimer.setTimeRemaining((prev) => {
           if (prev <= 1) {
             handleAutoSubmit();
             return 0;
@@ -305,7 +330,7 @@ const ContestTaking = () => {
 
       return () => clearInterval(timer);
     }
-  }, [timeRemaining]);
+  }, [contestTimer.timeRemaining]);
 
   useEffect(() => {
     const loadDetailedSubmission = async () => {
@@ -372,11 +397,12 @@ const ContestTaking = () => {
     try {
       setSubmitting(true);
       
-      // Calculate time taken
-      const endTime = new Date(contest.end_time.replace('Z', ''));
-      const now = new Date();
-      const totalContestTime = endTime.getTime() - new Date(contest.start_time.replace('Z', '')).getTime();
-      const timeTaken = Math.floor((totalContestTime - (timeRemaining * 1000)) / 1000);
+      // Calculate time taken using server time
+      const now = contestTimer.serverNow();
+      const startTime = new Date(contest.start_time).getTime();
+      const endTime = new Date(contest.end_time).getTime();
+      const totalContestTime = endTime - startTime;
+      const timeTaken = Math.floor((totalContestTime - (contestTimer.timeRemaining * 1000)) / 1000);
 
       await apiService.submitContest(contest.id, answers, timeTaken);
 
@@ -972,14 +998,14 @@ const ContestTaking = () => {
   const progressPercentage = (answeredQuestions / totalQuestions) * 100;
 
   const getTimeColor = () => {
-    if (timeRemaining < 300) return 'text-red-600'; // Less than 5 minutes
-    if (timeRemaining < 900) return 'text-orange-600'; // Less than 15 minutes
+    if (contestTimer.timeRemaining < 300) return 'text-red-600'; // Less than 5 minutes
+    if (contestTimer.timeRemaining < 900) return 'text-orange-600'; // Less than 15 minutes
     return 'text-blue-600';
   };
 
   const getTimeBackground = () => {
-    if (timeRemaining < 300) return 'bg-red-50 border-red-200'; // Less than 5 minutes
-    if (timeRemaining < 900) return 'bg-orange-50 border-orange-200'; // Less than 15 minutes
+    if (contestTimer.timeRemaining < 300) return 'bg-red-50 border-red-200'; // Less than 5 minutes
+    if (contestTimer.timeRemaining < 900) return 'bg-orange-50 border-orange-200'; // Less than 15 minutes
     return 'bg-blue-50 border-blue-200';
   };
 
@@ -1016,10 +1042,10 @@ const ContestTaking = () => {
               <div className={`text-right p-4 rounded-xl border-2 ${getTimeBackground()}`}>
                 <div className={`text-3xl font-bold ${getTimeColor()} flex items-center justify-center`}>
                   <Timer className="h-6 w-6 mr-2" />
-                  {formatTime(timeRemaining)}
+                  {formatTime(contestTimer.timeRemaining)}
                 </div>
                 <p className="text-sm text-gray-600 mt-1">Time Remaining</p>
-                {timeRemaining < 600 && (
+                {contestTimer.timeRemaining < 600 && (
                   <div className="flex items-center justify-center mt-2 text-red-600">
                     <AlertTriangle className="h-4 w-4 mr-1" />
                     <span className="text-xs font-medium">Hurry up!</span>
@@ -1370,7 +1396,7 @@ const ContestTaking = () => {
                     <span className="font-medium text-blue-900">Time Remaining</span>
                   </div>
                   <p className="text-sm text-blue-800">
-                    You still have <span className="font-bold">{formatTime(timeRemaining)}</span> left. 
+                    You still have <span className="font-bold">{formatTime(contestTimer.timeRemaining)}</span> left. 
                     You can continue working or submit now.
                   </p>
                 </div>
