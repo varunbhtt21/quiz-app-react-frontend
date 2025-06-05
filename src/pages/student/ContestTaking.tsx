@@ -12,6 +12,7 @@ import { ArrowLeft, ArrowRight, Clock, Send, Loader2, AlertTriangle, CheckCircle
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 import { API_SERVER_URL } from '../../config/api';
+import { useServerTime } from '../../hooks/useServerTime';
 import { useContestTimer } from '../../hooks/useContestTimer';
 import { formatDateTime, formatTimer } from '../../utils/timeUtils';
 
@@ -42,10 +43,14 @@ const ContestTaking = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   
+  // Server time synchronization
+  const { serverNow, isConnected: serverTimeConnected } = useServerTime();
+  
   const [contest, setContest] = useState<Contest | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [timeRemaining, setTimeRemaining] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -53,6 +58,49 @@ const ContestTaking = () => {
   const [detailedSubmission, setDetailedSubmission] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [currentReviewQuestion, setCurrentReviewQuestion] = useState(0);
+
+  // Simple contest security state
+  const [contestInProgress, setContestInProgress] = useState(false);
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
+  // Handle auto-submission when time expires
+  const handleAutoSubmit = useCallback(async () => {
+    if (!contest || submitting || hasSubmitted) return;
+    
+    // Deactivate contest security for auto-submit
+    setContestInProgress(false);
+    
+    toast({
+      title: "Time's Up!",
+      description: "Contest auto-submitted due to time limit"
+    });
+    
+    try {
+      setSubmitting(true);
+      
+      // Calculate time taken using server time
+      const now = serverNow();
+      const startTime = new Date(contest.start_time).getTime();
+      const endTime = new Date(contest.end_time).getTime();
+      const totalContestTime = endTime - startTime;
+      const timeTaken = Math.floor(totalContestTime / 1000);
+
+      await apiService.submitContest(contest.id, answers, timeTaken);
+      setHasSubmitted(true);
+
+      navigate('/student/dashboard');
+    } catch (error) {
+      console.error('Error auto-submitting contest:', error);
+      toast({
+        title: "Error",
+        description: "Failed to auto-submit contest",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }, [contest, submitting, hasSubmitted, serverNow, answers, navigate]);
 
   // Enhanced timer with server synchronization
   const contestTimer = useContestTimer({
@@ -64,11 +112,6 @@ const ContestTaking = () => {
       }
     },
   });
-
-  // Simple contest security state
-  const [contestInProgress, setContestInProgress] = useState(false);
-  const [showNavigationWarning, setShowNavigationWarning] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   // Store original navigate function and create guarded version
   const originalNavigate = useNavigate();
@@ -96,47 +139,6 @@ const ContestTaking = () => {
     }
   }, [contestInProgress, hasSubmitted, submitting, originalNavigate]);
 
-  // Force submit when user chooses to navigate away
-  const handleForceSubmit = async (): Promise<void> => {
-    if (!contest) return;
-    
-    try {
-      setSubmitting(true);
-      
-      // Calculate time taken using server time
-      const now = contestTimer.serverNow();
-      const startTime = new Date(contest.start_time).getTime();
-      const endTime = new Date(contest.end_time).getTime();
-      const totalContestTime = endTime - startTime;
-      const timeTaken = Math.floor((totalContestTime - (contestTimer.timeRemaining * 1000)) / 1000);
-
-      await apiService.submitContest(contest.id, answers, timeTaken);
-
-      // Deactivate contest security
-      setContestInProgress(false);
-      setHasSubmitted(true);
-
-      toast({
-        title: "Contest Auto-Submitted",
-        description: "Your answers have been automatically submitted due to navigation away from the contest.",
-        variant: "default"
-      });
-
-    } catch (error) {
-      console.error('Error auto-submitting contest:', error);
-      toast({
-        title: "Error",
-        description: "Failed to auto-submit contest. Please try again.",
-        variant: "destructive"
-      });
-      // Don't allow navigation if submission failed
-      setSubmitting(false);
-      throw error;
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   // Navigation protection for browser back/forward/refresh
   useEffect(() => {
     if (!contestInProgress || hasSubmitted || submitting) return;
@@ -157,7 +159,7 @@ const ContestTaking = () => {
         window.history.pushState(null, '', window.location.href);
       } else {
         // Auto-submit the contest before allowing navigation
-        handleForceSubmit().then(() => {
+        handleAutoSubmit().then(() => {
           // Allow the navigation after submission
           setContestInProgress(false);
         }).catch(() => {
@@ -209,7 +211,7 @@ const ContestTaking = () => {
         
         if (shouldLeave) {
           // Auto-submit the contest before allowing navigation
-          handleForceSubmit().then(() => {
+          handleAutoSubmit().then(() => {
             // Navigate after submission is complete
             setTimeout(() => {
               (navElement as HTMLElement).click();
@@ -225,7 +227,7 @@ const ContestTaking = () => {
     return () => {
       document.removeEventListener('click', handleDocumentClick, { capture: true });
     };
-  }, [contestInProgress, hasSubmitted, submitting, handleForceSubmit]);
+  }, [contestInProgress, hasSubmitted, submitting, handleAutoSubmit]);
 
   useEffect(() => {
     if (id) {
@@ -253,7 +255,7 @@ const ContestTaking = () => {
       }
       
       // Use server time for accurate timing validation
-      const now = contestTimer.serverNow();
+      const now = serverNow();
       const startTime = new Date(contestData.start_time).getTime();
       const endTime = new Date(contestData.end_time).getTime();
       
@@ -272,7 +274,7 @@ const ContestTaking = () => {
       const remainingMs = endTime - now;
       const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
       
-      contestTimer.setTimeRemaining(remainingSeconds);
+      setTimeRemaining(remainingSeconds);
       
       if (remainingSeconds <= 0) {
         toast({
@@ -285,7 +287,7 @@ const ContestTaking = () => {
       }
       
       // Show server time sync status
-      if (!contestTimer.isConnected) {
+      if (!serverTimeConnected) {
         toast({
           title: "Time Sync Warning",
           description: "Unable to sync with server time. Contest timing may be inaccurate.",
@@ -317,9 +319,9 @@ const ContestTaking = () => {
   };
 
   useEffect(() => {
-    if (contestTimer.timeRemaining > 0) {
+    if (timeRemaining > 0) {
       const timer = setInterval(() => {
-        contestTimer.setTimeRemaining((prev) => {
+        setTimeRemaining((prev) => {
           if (prev <= 1) {
             handleAutoSubmit();
             return 0;
@@ -330,7 +332,7 @@ const ContestTaking = () => {
 
       return () => clearInterval(timer);
     }
-  }, [contestTimer.timeRemaining]);
+  }, [timeRemaining, handleAutoSubmit]);
 
   useEffect(() => {
     const loadDetailedSubmission = async () => {
@@ -398,11 +400,11 @@ const ContestTaking = () => {
       setSubmitting(true);
       
       // Calculate time taken using server time
-      const now = contestTimer.serverNow();
+      const now = serverNow();
       const startTime = new Date(contest.start_time).getTime();
       const endTime = new Date(contest.end_time).getTime();
       const totalContestTime = endTime - startTime;
-      const timeTaken = Math.floor((totalContestTime - (contestTimer.timeRemaining * 1000)) / 1000);
+      const timeTaken = Math.floor((totalContestTime - (timeRemaining * 1000)) / 1000);
 
       await apiService.submitContest(contest.id, answers, timeTaken);
 
@@ -425,17 +427,6 @@ const ContestTaking = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleAutoSubmit = () => {
-    // Deactivate contest security for auto-submit
-    setContestInProgress(false);
-    
-    toast({
-      title: "Time's Up!",
-      description: "Contest auto-submitted due to time limit"
-    });
-    handleSubmit();
   };
 
   if (loading) {
@@ -998,14 +989,14 @@ const ContestTaking = () => {
   const progressPercentage = (answeredQuestions / totalQuestions) * 100;
 
   const getTimeColor = () => {
-    if (contestTimer.timeRemaining < 300) return 'text-red-600'; // Less than 5 minutes
-    if (contestTimer.timeRemaining < 900) return 'text-orange-600'; // Less than 15 minutes
+    if (timeRemaining < 300) return 'text-red-600'; // Less than 5 minutes
+    if (timeRemaining < 900) return 'text-orange-600'; // Less than 15 minutes
     return 'text-blue-600';
   };
 
   const getTimeBackground = () => {
-    if (contestTimer.timeRemaining < 300) return 'bg-red-50 border-red-200'; // Less than 5 minutes
-    if (contestTimer.timeRemaining < 900) return 'bg-orange-50 border-orange-200'; // Less than 15 minutes
+    if (timeRemaining < 300) return 'bg-red-50 border-red-200'; // Less than 5 minutes
+    if (timeRemaining < 900) return 'bg-orange-50 border-orange-200'; // Less than 15 minutes
     return 'bg-blue-50 border-blue-200';
   };
 
@@ -1042,10 +1033,10 @@ const ContestTaking = () => {
               <div className={`text-right p-4 rounded-xl border-2 ${getTimeBackground()}`}>
                 <div className={`text-3xl font-bold ${getTimeColor()} flex items-center justify-center`}>
                   <Timer className="h-6 w-6 mr-2" />
-                  {formatTime(contestTimer.timeRemaining)}
+                  {formatTime(timeRemaining)}
                 </div>
                 <p className="text-sm text-gray-600 mt-1">Time Remaining</p>
-                {contestTimer.timeRemaining < 600 && (
+                {timeRemaining < 600 && (
                   <div className="flex items-center justify-center mt-2 text-red-600">
                     <AlertTriangle className="h-4 w-4 mr-1" />
                     <span className="text-xs font-medium">Hurry up!</span>
@@ -1396,7 +1387,7 @@ const ContestTaking = () => {
                     <span className="font-medium text-blue-900">Time Remaining</span>
                   </div>
                   <p className="text-sm text-blue-800">
-                    You still have <span className="font-bold">{formatTime(contestTimer.timeRemaining)}</span> left. 
+                    You still have <span className="font-bold">{formatTime(timeRemaining)}</span> left. 
                     You can continue working or submit now.
                   </p>
                 </div>

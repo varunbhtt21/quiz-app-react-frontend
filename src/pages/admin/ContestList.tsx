@@ -6,8 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Eye, Edit, Trophy, Calendar, Clock, Users, Target, Play, Pause, CheckCircle, RefreshCw, Download, BookOpen, Timer, TrendingUp } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Plus, Search, Eye, Edit, Trophy, Calendar, Clock, Users, Target, Play, Pause, CheckCircle, RefreshCw, Download, BookOpen, Timer, TrendingUp, Trash2, Power, PowerOff } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { toast } from '@/hooks/use-toast';
 
@@ -17,12 +29,14 @@ interface Contest {
   course_name?: string;
   name: string;
   description?: string;
+  is_active: boolean;
   start_time: string;
   end_time: string;
   status: "not_started" | "in_progress" | "ended";
   problem_count?: number;
   submission_count?: number;
   created_at: string;
+  can_be_deleted?: boolean;
 }
 
 const ContestList = () => {
@@ -30,6 +44,8 @@ const ContestList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [contests, setContests] = useState<Contest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingContestId, setDeletingContestId] = useState<string | null>(null);
+  const [togglingContestId, setTogglingContestId] = useState<string | null>(null);
 
   useEffect(() => {
     loadContests();
@@ -80,6 +96,56 @@ const ContestList = () => {
       console.error('Error loading contests:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteContest = async (contestId: string) => {
+    try {
+      setDeletingContestId(contestId);
+      await apiService.deleteContest(contestId);
+      
+      toast({
+        title: "Success",
+        description: "Contest deleted successfully"
+      });
+      
+      // Reload contests
+      await loadContests();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete contest",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingContestId(null);
+    }
+  };
+
+  const handleToggleContestStatus = async (contestId: string, isActive: boolean) => {
+    try {
+      setTogglingContestId(contestId);
+      await apiService.toggleContestStatus(contestId, isActive);
+      
+      toast({
+        title: "Success",
+        description: `Contest ${isActive ? 'enabled' : 'disabled'} successfully`
+      });
+      
+      // Update local state
+      setContests(contests.map(contest => 
+        contest.id === contestId 
+          ? { ...contest, is_active: isActive }
+          : contest
+      ));
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update contest status",
+        variant: "destructive"
+      });
+    } finally {
+      setTogglingContestId(null);
     }
   };
 
@@ -352,14 +418,23 @@ const ContestList = () => {
                       const status = getContestStatus(contest.start_time, contest.end_time);
                       
                       return (
-                        <TableRow key={contest.id} className="hover:bg-gray-50 transition-colors">
+                        <TableRow key={contest.id} className={`hover:bg-gray-50 transition-colors ${!contest.is_active ? 'opacity-60 bg-gray-50' : ''}`}>
                           <TableCell>
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center">
+                              <div className={`w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center ${!contest.is_active ? 'opacity-50' : ''}`}>
                                 <Trophy className="h-5 w-5 text-white" />
                               </div>
                               <div>
-                                <h4 className="font-medium text-gray-900">{contest.name}</h4>
+                                <div className="flex items-center space-x-2">
+                                  <h4 className={`font-medium text-gray-900 ${!contest.is_active ? 'line-through text-gray-500' : ''}`}>
+                                    {contest.name}
+                                  </h4>
+                                  {!contest.is_active && (
+                                    <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 border-red-200">
+                                      Disabled
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-sm text-gray-500">ID: {contest.id.slice(0, 8)}...</p>
                               </div>
                             </div>
@@ -410,6 +485,7 @@ const ContestList = () => {
                                 variant="outline"
                                 onClick={() => navigate(`/admin/contests/${contest.id}`)}
                                 className="hover:bg-blue-50 hover:border-blue-300"
+                                title="View Contest"
                               >
                                 <Eye className="h-3 w-3" />
                               </Button>
@@ -418,9 +494,75 @@ const ContestList = () => {
                                 variant="outline"
                                 onClick={() => navigate(`/admin/contests/edit/${contest.id}`)}
                                 className="hover:bg-green-50 hover:border-green-300"
+                                title="Edit Contest"
                               >
                                 <Edit className="h-3 w-3" />
                               </Button>
+                              
+                              {/* Enable/Disable Toggle */}
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleToggleContestStatus(contest.id, !contest.is_active)}
+                                disabled={togglingContestId === contest.id}
+                                className={`${contest.is_active 
+                                  ? 'hover:bg-red-50 hover:border-red-300 text-red-600' 
+                                  : 'hover:bg-green-50 hover:border-green-300 text-green-600'
+                                }`}
+                                title={contest.is_active ? 'Disable Contest' : 'Enable Contest'}
+                              >
+                                {togglingContestId === contest.id ? (
+                                  <RefreshCw className="h-3 w-3 animate-spin" />
+                                ) : contest.is_active ? (
+                                  <PowerOff className="h-3 w-3" />
+                                ) : (
+                                  <Power className="h-3 w-3" />
+                                )}
+                              </Button>
+
+                              {/* Delete Button */}
+                              {contest.can_be_deleted && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="hover:bg-red-50 hover:border-red-300 text-red-600"
+                                      title="Delete Contest"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Contest</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete "{contest.name}"? This action cannot be undone and will remove all contest data including problems.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteContest(contest.id)}
+                                        disabled={deletingContestId === contest.id}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        {deletingContestId === contest.id ? (
+                                          <>
+                                            <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                                            Deleting...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Trash2 className="h-3 w-3 mr-2" />
+                                            Delete Contest
+                                          </>
+                                        )}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
