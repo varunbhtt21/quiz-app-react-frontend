@@ -170,18 +170,20 @@ const CreateContest = () => {
     try {
       setSubmitting(true);
       
-      const formatDateTimePreserveLocal = (dateTimeLocal: string) => {
-        const formatted = dateTimeLocal.includes(':') && dateTimeLocal.split(':').length === 2 
-          ? dateTimeLocal + ':00' 
-          : dateTimeLocal;
-        return formatted + '.000Z';
+      // Convert local datetime-local input to UTC
+      const convertToUTC = (dateTimeLocal: string): string => {
+        // Parse the local datetime (datetime-local format: YYYY-MM-DDTHH:mm)
+        const localDate = new Date(dateTimeLocal);
+        
+        // Convert to UTC ISO string
+        return localDate.toISOString();
       };
       
       const contestData = {
         name: data.name,
         description: data.description,
-        start_time: formatDateTimePreserveLocal(data.start_time),
-        end_time: formatDateTimePreserveLocal(data.end_time),
+        start_time: convertToUTC(data.start_time),
+        end_time: convertToUTC(data.end_time),
         problems: selectedProblems.map(p => ({
           problem_id: p.problem_id,
           marks: p.marks

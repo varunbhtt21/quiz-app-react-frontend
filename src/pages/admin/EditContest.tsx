@@ -141,11 +141,13 @@ const EditContest = () => {
     try {
       setSubmitting(true);
       
-      const formatDateTimePreserveLocal = (dateTimeLocal: string) => {
-        const formatted = dateTimeLocal.includes(':') && dateTimeLocal.split(':').length === 2 
-          ? dateTimeLocal + ':00' 
-          : dateTimeLocal;
-        return formatted + '.000Z';
+      // Convert local datetime-local input to UTC
+      const convertToUTC = (dateTimeLocal: string): string => {
+        // Parse the local datetime (datetime-local format: YYYY-MM-DDTHH:mm)
+        const localDate = new Date(dateTimeLocal);
+        
+        // Convert to UTC ISO string
+        return localDate.toISOString();
       };
       
       const updateData: any = {
@@ -155,8 +157,8 @@ const EditContest = () => {
 
       // Only include time fields if contest hasn't started
       if (canEditTimes()) {
-        updateData.start_time = formatDateTimePreserveLocal(data.start_time);
-        updateData.end_time = formatDateTimePreserveLocal(data.end_time);
+        updateData.start_time = convertToUTC(data.start_time);
+        updateData.end_time = convertToUTC(data.end_time);
       }
 
       await apiService.updateContest(contest.id, updateData);
