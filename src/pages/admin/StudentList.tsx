@@ -176,15 +176,16 @@ const UserList = () => {
 
     try {
       setImporting(true);
-      const result = await apiService.bulkImportUsers(file) as ImportResult;
+      // Use the email-enabled bulk import with automatic email sending
+      const result = await apiService.bulkImportWithEmail(file, true, undefined, 1) as ImportResult;
       setImportResult(result);
       setShowImportResult(true);
       
       if (result.successful > 0) {
         loadUsers(); // Refresh the user list
         toast({
-          title: "Import Completed",
-          description: `Successfully imported ${result.successful} users${result.failed > 0 ? ` (${result.failed} failed)` : ''}`
+          title: "Import Completed with Emails",
+          description: `Successfully imported ${result.successful} users${result.failed > 0 ? ` (${result.failed} failed)` : ''}. Invitation emails sent automatically.`
         });
       } else {
         toast({
