@@ -35,7 +35,7 @@ interface StudentStats {
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [contests, setContests] = useState<Contest[]>([]);
   const [stats, setStats] = useState<StudentStats>({
     contestsTaken: 0,
@@ -45,47 +45,85 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadStudentData();
-  }, []);
+    // Only load data when authentication is ready and user is authenticated
+    if (!authLoading && isAuthenticated) {
+      loadStudentData();
+    } else if (!authLoading && !isAuthenticated) {
+      // User is not authenticated, redirect to login
+      console.log('Student dashboard: User not authenticated, redirecting to login');
+      navigate('/login');
+    }
+  }, [authLoading, isAuthenticated, navigate]);
 
   const loadStudentData = async () => {
+    // Double-check authentication before making API calls
+    if (!isAuthenticated || !user) {
+      console.error('Attempted to load data without authentication');
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to view your dashboard",
+        variant: "destructive"
+      });
+      navigate('/login');
+      return;
+    }
+
+    // Verify token exists in localStorage
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      console.error('No access token found in localStorage');
+      toast({
+        title: "Session Expired",
+        description: "Please log in again",
+        variant: "destructive"
+      });
+      navigate('/login');
+      return;
+    }
+
     try {
       setLoading(true);
+      console.log('Loading student data for:', user.email);
       
-      // Load contests
+      // Load contests with authentication
       const contestsData = await apiService.getContests() as Contest[];
+      console.log('Contests received:', contestsData.length);
       
-      // Load course names and submission status for each contest
+      // Get all submissions first (single API call)
+      let submissionMap = new Map<string, boolean>();
+      try {
+        const submissions = await apiService.getMySubmissions() as any[];
+        submissions.forEach(sub => {
+          submissionMap.set(sub.contest_id, true);
+        });
+        console.log('Loaded submissions for', submissions.length, 'contests');
+      } catch (error) {
+        console.log('Could not load submissions, will mark all as not submitted');
+      }
+
+      // Load course names efficiently (keeping course fetching for now, could be optimized further)
       const contestsWithCourseNames = await Promise.all(
         contestsData.map(async (contest) => {
           try {
             const course = await apiService.getCourse(contest.course_id) as { id: string; name: string };
             
-            // Check if student has submitted this contest
-            let hasSubmitted = false;
-            try {
-              await apiService.getMySubmission(contest.id);
-              hasSubmitted = true;
-            } catch (error) {
-              // No submission found
-            }
-            
             return {
               ...contest,
               course_name: course.name || 'Unknown Course',
-              has_submitted: hasSubmitted
+              has_submitted: submissionMap.get(contest.id) || false
             };
           } catch (error) {
             return {
               ...contest,
               course_name: 'Unknown Course',
-              has_submitted: false
+              has_submitted: submissionMap.get(contest.id) || false
             };
           }
         })
       );
       
       setContests(contestsWithCourseNames);
+      console.log('Processed contests:', contestsWithCourseNames.length);
       
       // Calculate stats from actual submissions
       const completedContests = contestsWithCourseNames.filter(c => 
@@ -112,12 +150,25 @@ const StudentDashboard = () => {
       });
       
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load dashboard data",
-        variant: "destructive"
-      });
       console.error('Error loading student data:', error);
+      
+      // Check if it's an authentication error
+      if (error instanceof Error && (error.message.includes('401') || error.message.includes('Not authenticated'))) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to continue",
+          variant: "destructive"
+        });
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
+        navigate('/login');
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load dashboard data. Please refresh the page.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -170,6 +221,39 @@ const StudentDashboard = () => {
     }
     return 'Student';
   };
+
+  // Wait for auth loading to complete
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center space-y-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="text-gray-500 text-lg">Checking authentication...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // User not authenticated
+  if (!isAuthenticated || !user) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+              <User className="h-8 w-8 text-red-600" />
+            </div>
+            <p className="text-gray-500 text-lg">Authentication required</p>
+            <Button onClick={() => navigate('/login')}>
+              Go to Login
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   const activeContests = contests.filter(c => 
     getContestStatus(c.start_time, c.end_time) === 'in_progress' && !c.has_submitted

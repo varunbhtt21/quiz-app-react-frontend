@@ -14,7 +14,7 @@ interface Course {
   name: string;
   description?: string;
   instructor_id: string;
-  student_count?: number;
+  enrollment_count: number;  // Use backend field name
   created_at: string;
   updated_at: string;
 }
@@ -34,25 +34,8 @@ const CourseList = () => {
       setLoading(true);
       const data = await apiService.getCourses() as Course[];
       
-      // Load student count for each course
-      const coursesWithStudentCount = await Promise.all(
-        data.map(async (course) => {
-          try {
-            const students = await apiService.getCourseStudents(course.id);
-            return {
-              ...course,
-              student_count: Array.isArray(students) ? students.length : 0
-            };
-          } catch (error) {
-            return {
-              ...course,
-              student_count: 0
-            };
-          }
-        })
-      );
-      
-      setCourses(coursesWithStudentCount);
+      // Backend now provides enrollment_count directly - no need for manual counting!
+      setCourses(data);
     } catch (error) {
       toast({
         title: "Error",
@@ -64,9 +47,9 @@ const CourseList = () => {
     }
   };
 
-  const handleDeleteCourse = async (courseId: string, courseName: string, studentCount: number) => {
-    const message = studentCount > 0 
-      ? `Are you sure you want to delete the course "${courseName}"?\n\nThis will permanently delete:\n• The course itself\n• ${studentCount} student enrollment${studentCount !== 1 ? 's' : ''}\n• All associated contests and quiz data\n\nThis action cannot be undone.`
+  const handleDeleteCourse = async (courseId: string, courseName: string, enrollmentCount: number) => {
+    const message = enrollmentCount > 0 
+      ? `Are you sure you want to delete the course "${courseName}"?\n\nThis will permanently delete:\n• The course itself\n• ${enrollmentCount} student enrollment${enrollmentCount !== 1 ? 's' : ''}\n• All associated contests and quiz data\n\nThis action cannot be undone.`
       : `Are you sure you want to delete the course "${courseName}"?\n\nThis action cannot be undone.`;
     
     if (!confirm(message)) {
@@ -94,7 +77,7 @@ const CourseList = () => {
     (course.description && course.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const totalStudents = courses.reduce((sum, course) => sum + (course.student_count || 0), 0);
+  const totalStudents = courses.reduce((sum, course) => sum + course.enrollment_count, 0);
   const recentCourses = courses.filter(course => {
     const createdDate = new Date(course.created_at);
     const weekAgo = new Date();
@@ -102,7 +85,7 @@ const CourseList = () => {
     return createdDate > weekAgo;
   }).length;
 
-  const activeCourses = courses.filter(course => (course.student_count || 0) > 0).length;
+  const activeCourses = courses.filter(course => course.enrollment_count > 0).length;
 
   if (loading) {
     return (
@@ -337,17 +320,17 @@ const CourseList = () => {
                           <div className="flex items-center space-x-2">
                             <Users className="h-4 w-4 text-gray-400" />
                             <span className="text-sm text-gray-600">
-                              {course.student_count || 0} student{(course.student_count || 0) !== 1 ? 's' : ''}
+                              {course.enrollment_count} student{course.enrollment_count !== 1 ? 's' : ''}
                             </span>
                           </div>
                           <Badge 
                             className={`${
-                              (course.student_count || 0) > 0 
+                              course.enrollment_count > 0 
                                 ? 'bg-green-100 text-green-800 border-green-200' 
                                 : 'bg-gray-100 text-gray-800 border-gray-200'
                             } border font-medium`}
                           >
-                            {(course.student_count || 0) > 0 ? 'Active' : 'Empty'}
+                            {course.enrollment_count > 0 ? 'Active' : 'Empty'}
                           </Badge>
                         </div>
                         
@@ -377,7 +360,7 @@ const CourseList = () => {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => handleDeleteCourse(course.id, course.name, course.student_count || 0)}
+                          onClick={() => handleDeleteCourse(course.id, course.name, course.enrollment_count)}
                           className="hover:bg-red-50 hover:border-red-300 text-red-600"
                           title="Delete course"
                         >

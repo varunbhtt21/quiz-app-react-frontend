@@ -37,6 +37,7 @@ interface Course {
   id: string;
   name: string;
   description: string;
+  enrollment_count: number;
 }
 
 interface CSVEnrollmentResult {

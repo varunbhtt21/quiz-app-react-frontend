@@ -94,15 +94,40 @@ const ContestTaking = () => {
         const problem = contest.problems.find(p => p.id === questionId);
         
         if (problem?.question_type === 'long_answer') {
-          // Long Answer questions expect string format
-          acc[questionId] = typeof answer === 'string' ? answer : '';
+          // Long Answer questions MUST be strings
+          if (Array.isArray(answer)) {
+            // If somehow stored as array, join it
+            acc[questionId] = answer.join(' ').trim();
+          } else if (typeof answer === 'string') {
+            acc[questionId] = answer.trim();
+          } else {
+            // Fallback to empty string
+            acc[questionId] = '';
+          }
         } else {
           // MCQ questions expect array format
-          acc[questionId] = Array.isArray(answer) ? answer : [answer];
+          if (Array.isArray(answer)) {
+            acc[questionId] = answer.filter(a => a && a.trim().length > 0);
+          } else if (typeof answer === 'string' && answer.trim().length > 0) {
+            acc[questionId] = [answer.trim()];
+          } else {
+            acc[questionId] = [];
+          }
         }
         return acc;
       }, {} as Record<string, string[] | string>);
       
+      // Debug logging to help diagnose submission issues
+      console.log('🔍 Formatted answers for submission:', formattedAnswers);
+      Object.entries(formattedAnswers).forEach(([questionId, answer]) => {
+        const problem = contest.problems.find(p => p.id === questionId);
+        console.log(`  Question ${questionId} (${problem?.question_type}):`, {
+          type: typeof answer,
+          isArray: Array.isArray(answer),
+          value: answer
+        });
+      });
+
       await apiService.submitContest(contest.id, formattedAnswers, timeTaken);
       setHasSubmitted(true);
 
@@ -266,9 +291,11 @@ const ContestTaking = () => {
           setExistingSubmission(submission);
           return; // Don't set up timer if already submitted
         }
-      } catch (error) {
-        // No submission found, student can take the contest
+        // No submission found (null response), student can take the contest
         console.log('No existing submission found, student can take contest');
+      } catch (error) {
+        // Error fetching submission, log but allow student to take contest
+        console.log('Error checking submission status:', error);
       }
       
       // Use server time for accurate timing validation
@@ -436,14 +463,57 @@ const ContestTaking = () => {
         const problem = contest.problems.find(p => p.id === questionId);
         
         if (problem?.question_type === 'long_answer') {
-          // Long Answer questions expect string format
-          acc[questionId] = typeof answer === 'string' ? answer : '';
+          // Long Answer questions MUST be strings
+          if (Array.isArray(answer)) {
+            // If somehow stored as array, join it
+            acc[questionId] = answer.join(' ').trim();
+          } else if (typeof answer === 'string') {
+            acc[questionId] = answer.trim();
+          } else {
+            // Fallback to empty string
+            acc[questionId] = '';
+          }
         } else {
           // MCQ questions expect array format
-          acc[questionId] = Array.isArray(answer) ? answer : [answer];
+          if (Array.isArray(answer)) {
+            acc[questionId] = answer.filter(a => a && a.trim().length > 0);
+          } else if (typeof answer === 'string' && answer.trim().length > 0) {
+            acc[questionId] = [answer.trim()];
+          } else {
+            acc[questionId] = [];
+          }
         }
         return acc;
       }, {} as Record<string, string[] | string>);
+
+      // Debug logging to help diagnose submission issues
+      console.log('🔍 Formatted answers for submission:', formattedAnswers);
+      Object.entries(formattedAnswers).forEach(([questionId, answer]) => {
+        const problem = contest.problems.find(p => p.id === questionId);
+        console.log(`  Question ${questionId} (${problem?.question_type}):`, {
+          type: typeof answer,
+          isArray: Array.isArray(answer),
+          value: answer
+        });
+      });
+
+      // Validate submission has some answers
+      const hasAnswers = Object.keys(formattedAnswers).length > 0 && 
+        Object.values(formattedAnswers).some(answer => {
+          if (typeof answer === 'string') {
+            return answer.trim().length > 0;
+          }
+          return Array.isArray(answer) && answer.length > 0 && answer.some(a => a && a.trim().length > 0);
+        });
+
+      if (!hasAnswers) {
+        toast({
+          title: "No Answers",
+          description: "Please provide at least one answer before submitting.",
+          variant: "destructive"
+        });
+        return;
+      }
       
       await apiService.submitContest(contest.id, formattedAnswers, timeTaken);
 
@@ -610,8 +680,13 @@ const ContestTaking = () => {
         : 'bg-red-100 text-red-800 border-red-200';
     };
 
-    const formatAnswers = (answers: string[]) => {
-      return answers.map(opt => `${opt}`).join(', ') || 'No answer';
+    const formatAnswers = (answers: string[] | string | undefined) => {
+      if (!answers) return 'No answer';
+      if (typeof answers === 'string') return answers;
+      if (Array.isArray(answers)) {
+        return answers.map(opt => `${opt}`).join(', ') || 'No answer';
+      }
+      return 'No answer';
     };
 
     return (

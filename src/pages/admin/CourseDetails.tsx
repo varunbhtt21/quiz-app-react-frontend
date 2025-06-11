@@ -23,6 +23,7 @@ interface Course {
   instructor_id: string;
   created_at: string;
   updated_at: string;
+  enrollment_count: number;
 }
 
 interface StudentsResponse {
@@ -161,7 +162,7 @@ const CourseDetails = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-6">
-              <div className="text-2xl font-bold text-blue-600">{Array.isArray(students) ? students.length : 0}</div>
+              <div className="text-2xl font-bold text-blue-600">{course?.enrollment_count || 0}</div>
               <p className="text-sm text-gray-500">Enrolled Students</p>
             </CardContent>
           </Card>

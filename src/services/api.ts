@@ -96,8 +96,22 @@ class ApiService {
         window.location.href = '/login';
       }
       
+      // Check if response is HTML (common with proxy/server errors)
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        console.error(`Server returned HTML instead of JSON (${response.status})`);
+        throw new Error(`Server error: HTTP ${response.status} - Please try again later`);
+      }
+      
       const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
       throw new Error(errorData.detail || `HTTP ${response.status}`);
+    }
+    
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Server returned non-JSON response:', contentType);
+      throw new Error('Server returned invalid response format');
     }
     
     return response.json();
@@ -605,6 +619,11 @@ class ApiService {
       headers: this.getHeaders(),
     });
     
+    // Handle 404 gracefully for submissions that don't exist
+    if (response.status === 404) {
+      return null;
+    }
+    
     return this.handleResponse(response);
   }
 
@@ -751,49 +770,14 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  // Get all submissions for current student
+  // Get all submissions for current student (optimized single API call)
   async getMySubmissions() {
     try {
-      // First get all contests the student has access to
-      const contests = await this.getContests() as any[];
+      const response = await fetch(`${API_BASE_URL}/contests/my-submissions`, {
+        headers: this.getHeaders(),
+      });
       
-      // Then get submissions for each contest
-      const submissions = [];
-      for (const contest of contests) {
-        try {
-          const submission = await this.getMySubmission(contest.id) as any;
-          
-          // Get course name
-          let courseName = 'Unknown Course';
-          try {
-            const course = await this.getCourse(contest.course_id) as { name: string };
-            courseName = course.name;
-          } catch (error) {
-            // Course name fetch failed, use default
-          }
-          
-          submissions.push({
-            id: submission.id,
-            contest_id: submission.contest_id,
-            student_id: submission.student_id,
-            total_score: submission.total_score,
-            max_possible_score: submission.max_possible_score,
-            submitted_at: submission.submitted_at,
-            time_taken_seconds: submission.time_taken_seconds,
-            is_auto_submitted: submission.is_auto_submitted,
-            contest_name: contest.name,
-            course_name: courseName,
-            percentage: submission.max_possible_score > 0 
-              ? (submission.total_score / submission.max_possible_score * 100) 
-              : 0
-          });
-        } catch (error) {
-          // Student hasn't submitted for this contest, skip
-          continue;
-        }
-      }
-      
-      return submissions;
+      return this.handleResponse(response);
     } catch (error) {
       console.error('Error fetching student submissions:', error);
       throw error;
