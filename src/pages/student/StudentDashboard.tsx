@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { 
   Trophy, Clock, CheckCircle, Play, Calendar, Award, BookOpen, Target, 
   TrendingUp, Users, Star, Timer, User, Mail, Zap, Activity, 
-  GraduationCap, ChevronRight, Bell, Settings
+  GraduationCap, ChevronRight, Bell, Settings, ChevronUp
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/common/Layout';
@@ -43,6 +43,8 @@ const StudentDashboard = () => {
     activeCourses: 0
   });
   const [loading, setLoading] = useState(true);
+  const [showAllCompleted, setShowAllCompleted] = useState(false);
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
 
   useEffect(() => {
     // Only load data when authentication is ready and user is authenticated
@@ -546,7 +548,7 @@ const StudentDashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4">
-                {upcomingContests.slice(0, 3).map((contest) => (
+                {upcomingContests.slice(0, showAllUpcoming ? upcomingContests.length : 3).map((contest) => (
                   <div key={contest.id} className="bg-white p-6 rounded-2xl border border-blue-200 hover:shadow-md transition-all duration-300 hover:border-blue-300">
                     <div className="space-y-4">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between space-y-3 sm:space-y-0">
@@ -589,9 +591,24 @@ const StudentDashboard = () => {
               
               {upcomingContests.length > 3 && (
                 <div className="text-center pt-4">
-                  <Button variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-100">
-                    View {upcomingContests.length - 3} more upcoming contests
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => setShowAllUpcoming(!showAllUpcoming)}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-100"
+                  >
+                    {showAllUpcoming 
+                      ? (
+                        <>
+                          Show Less
+                          <ChevronUp className="h-4 w-4 ml-1" />
+                        </>
+                      ) : (
+                        <>
+                          View {upcomingContests.length - 3} more upcoming contests
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </>
+                      )
+                    }
                   </Button>
                 </div>
               )}
@@ -627,7 +644,7 @@ const StudentDashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4">
-                {completedContests.slice(0, 3).map((contest) => {
+                {completedContests.slice(0, showAllCompleted ? completedContests.length : 3).map((contest) => {
                   const contestStatus = getContestStatus(contest.start_time, contest.end_time);
                   const isSubmitted = contest.has_submitted;
                   
@@ -688,11 +705,22 @@ const StudentDashboard = () => {
                 <div className="text-center pt-4">
                   <Button 
                     variant="ghost" 
-                    onClick={() => navigate('/student/results')}
+                    onClick={() => setShowAllCompleted(!showAllCompleted)}
                     className="text-purple-600 hover:text-purple-700 hover:bg-purple-100"
                   >
-                    View {completedContests.length - 3} more completed contests
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    {showAllCompleted 
+                      ? (
+                        <>
+                          Show Less
+                          <ChevronUp className="h-4 w-4 ml-1" />
+                        </>
+                      ) : (
+                        <>
+                          View {completedContests.length - 3} more completed contests
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </>
+                      )
+                    }
                   </Button>
                 </div>
               )}
