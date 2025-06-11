@@ -73,11 +73,13 @@ export interface TagInfo {
 }
 
 class ApiService {
-  private getHeaders(): HeadersInit {
+  private getHeaders(isFormData = false): HeadersInit {
     const token = localStorage.getItem('access_token');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    const headers: HeadersInit = {};
+    
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
     
     if (token) {
       headers.Authorization = `Bearer ${token}`;
@@ -817,9 +819,7 @@ class ApiService {
     
     const response = await fetch(`${API_BASE_URL}/students/bulk-import`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-      },
+      headers: this.getHeaders(true), // true for FormData
       body: formData,
     });
     
@@ -835,9 +835,113 @@ class ApiService {
     return this.bulkImportStudents(file);
   }
 
+  // Email Management API Methods
+  async getStudentsWithEmailStatus(skip = 0, limit = 100, search?: string, emailStatus?: string) {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    
+    if (search) {
+      params.append('search', search);
+    }
+    
+    if (emailStatus) {
+      params.append('email_status', emailStatus);
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/students/email-status?${params}`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async getEmailOperationStatus(operationId: string) {
+    const response = await fetch(`${API_BASE_URL}/students/email-operation/${operationId}`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async bulkImportWithEmail(file: File, sendEmails = true, courseId?: string, emailDelaySeconds = 1) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const params = new URLSearchParams({
+      send_emails: sendEmails.toString(),
+      email_delay_seconds: emailDelaySeconds.toString(),
+    });
+    
+    if (courseId) {
+      params.append('course_id', courseId);
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/students/bulk-import-with-email?${params}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+      },
+      body: formData,
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async sendInvitationEmails(studentIds: string[], courseId?: string, customMessage?: string) {
+    const response = await fetch(`${API_BASE_URL}/students/send-invitations`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        student_ids: studentIds,
+        course_id: courseId,
+        custom_message: customMessage,
+      }),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async sendBulkEmail(studentEmails: string[], subject: string, message: string, courseId?: string) {
+    const response = await fetch(`${API_BASE_URL}/students/bulk-email`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        student_emails: studentEmails,
+        subject,
+        message,
+        course_id: courseId,
+      }),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async updateStudentEmailStatus(studentId: string, emailSent?: boolean, emailVerified?: boolean) {
+    const params = new URLSearchParams();
+    
+    if (emailSent !== undefined) {
+      params.append('email_sent', emailSent.toString());
+    }
+    
+    if (emailVerified !== undefined) {
+      params.append('email_verified', emailVerified.toString());
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/students/${studentId}/email-status?${params}`, {
+      method: 'PATCH',
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+
+
   // Contest time synchronization and timezone support
   async getServerTime() {
-    const response = await fetch(`${API_BASE_URL}/contests/time`, {
+    const response = await fetch(`${API_BASE_URL}/time`, {
       headers: this.getHeaders(),
     });
     
@@ -845,7 +949,7 @@ class ApiService {
   }
 
   async getContestTimeInfo(contestId: string) {
-    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/time`, {
+    const response = await fetch(`${API_BASE_URL}/contest/${contestId}/time-info`, {
       headers: this.getHeaders(),
     });
     
@@ -853,13 +957,10 @@ class ApiService {
   }
 
   async autoSubmitContest(contestId: string, answers: Record<string, string[] | string>, timeTaken?: number) {
-    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/auto-submit`, {
+    const response = await fetch(`${API_BASE_URL}/contest/${contestId}/auto-submit`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify({
-        answers,
-        time_taken_seconds: timeTaken,
-      }),
+      body: JSON.stringify({ answers, time_taken: timeTaken }),
     });
     
     return this.handleResponse(response);

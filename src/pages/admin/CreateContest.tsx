@@ -585,21 +585,21 @@ const CreateContest = () => {
                               
                               {/* Display question type specific content */}
                               {question.question_type === QuestionType.MCQ && question.option_a && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">A</span>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">A</span>
                                     <span>{question.option_a}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">B</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">B</span>
                                     <span>{question.option_b}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">C</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">C</span>
                                     <span>{question.option_c}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">D</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">D</span>
                                     <span>{question.option_d}</span>
                                   </div>
                                 </div>
@@ -613,7 +613,7 @@ const CreateContest = () => {
                                   {question.scoring_type && (
                                     <p>Scoring: {question.scoring_type === 'manual' ? 'Manual Review' : 'Keyword-based'}</p>
                                   )}
-                                </div>
+                              </div>
                               )}
                             </div>
                             {isSelected && (
@@ -672,7 +672,7 @@ const CreateContest = () => {
                       {selectedProblems.map((p) => (
                         <div key={p.problem_id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-green-100">
                           <div className="flex items-center space-x-2">
-                            <span className="font-medium text-gray-900">{p.problem.title}</span>
+                          <span className="font-medium text-gray-900">{p.problem.title}</span>
                             <Badge 
                               variant="outline" 
                               className={p.problem.question_type === QuestionType.MCQ 

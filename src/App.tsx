@@ -31,6 +31,7 @@ import UserList from "./pages/admin/StudentList";
 import CreateUser from "./pages/admin/CreateStudent";
 import EditUser from "./pages/admin/EditStudent";
 import EnrollStudents from "./pages/admin/EnrollStudents";
+import EmailManagement from "./pages/admin/EmailManagement";
 
 // Student pages
 import ContestTaking from "./pages/student/ContestTaking";
@@ -198,6 +199,13 @@ const AppRoutes = () => {
       <Route path="/admin/results" element={
         <ProtectedRoute requireAdmin>
           <Results />
+        </ProtectedRoute>
+      } />
+
+      {/* Email Management Routes */}
+      <Route path="/admin/email" element={
+        <ProtectedRoute requireAdmin>
+          <EmailManagement />
         </ProtectedRoute>
       } />
 

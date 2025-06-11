@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, BookOpen, Home, FileText, Trophy, GraduationCap, BarChart3, HelpCircle, Menu, X, Sparkles, ChevronDown, Bell, Settings, Users, Tag } from 'lucide-react';
+import { LogOut, User, BookOpen, Home, FileText, Trophy, GraduationCap, BarChart3, HelpCircle, Menu, X, Sparkles, ChevronDown, Bell, Settings, Users, Tag, Mail } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
@@ -41,6 +41,15 @@ const Layout = ({ children }: LayoutProps) => {
       color: 'text-green-600',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200'
+    },
+    { 
+      label: 'Email Management', 
+      path: '/admin/email', 
+      icon: Mail,
+      description: 'Send invitations and manage email communications',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200'
     },
     { 
       label: 'Question Bank', 

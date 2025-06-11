@@ -1110,8 +1110,8 @@ const ContestTaking = () => {
                       {currentProblem.question_type === 'long_answer' 
                         ? 'Write a detailed answer to the question' 
                         : currentProblem.correct_options.length > 1 
-                          ? 'Choose all correct answers (multiple selections allowed)' 
-                          : 'Choose the correct answer (single selection only)'}
+                        ? 'Choose all correct answers (multiple selections allowed)' 
+                        : 'Choose the correct answer (single selection only)'}
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -1185,71 +1185,71 @@ const ContestTaking = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {[
-                      { key: 'A', text: currentProblem.option_a },
-                      { key: 'B', text: currentProblem.option_b },
-                      { key: 'C', text: currentProblem.option_c },
-                      { key: 'D', text: currentProblem.option_d }
+                <div className="space-y-4">
+                  {[
+                    { key: 'A', text: currentProblem.option_a },
+                    { key: 'B', text: currentProblem.option_b },
+                    { key: 'C', text: currentProblem.option_c },
+                    { key: 'D', text: currentProblem.option_d }
                     ].filter(option => option.text).map((option) => {
-                      const isSelected = currentAnswers.includes(option.key);
-                      
-                      return (
-                        <div 
-                          key={option.key} 
-                          className={`group relative p-4 border-2 rounded-xl transition-all duration-200 cursor-pointer hover:shadow-md ${
-                            isSelected 
-                              ? 'border-blue-500 bg-blue-50 shadow-md' 
-                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
-                          }`}
-                          onClick={() => handleAnswerChange(currentProblem.id, option.key, !isSelected)}
-                        >
-                          <div className="flex items-start space-x-4">
-                            <div className={`flex-shrink-0 w-8 h-8 border-2 flex items-center justify-center font-bold text-sm transition-colors ${
-                              currentProblem.correct_options.length === 1
-                                ? `rounded-full ${  // Radio style for single choice
-                                    isSelected 
-                                      ? 'border-blue-500 bg-blue-500 text-white' 
-                                      : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
-                                  }`
-                                : `rounded ${  // Square style for multiple choice
-                                    isSelected 
-                                      ? 'border-blue-500 bg-blue-500 text-white' 
-                                      : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
-                                  }`
-                            }`}>
-                              {isSelected ? (
-                                currentProblem.correct_options.length === 1 ? (
-                                  <Circle className="h-4 w-4 fill-current" />
-                                ) : (
-                                  <CheckCircle className="h-5 w-5" />
-                                )
+                    const isSelected = currentAnswers.includes(option.key);
+                    
+                    return (
+                      <div 
+                        key={option.key} 
+                        className={`group relative p-4 border-2 rounded-xl transition-all duration-200 cursor-pointer hover:shadow-md ${
+                          isSelected 
+                            ? 'border-blue-500 bg-blue-50 shadow-md' 
+                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                        }`}
+                        onClick={() => handleAnswerChange(currentProblem.id, option.key, !isSelected)}
+                      >
+                        <div className="flex items-start space-x-4">
+                          <div className={`flex-shrink-0 w-8 h-8 border-2 flex items-center justify-center font-bold text-sm transition-colors ${
+                            currentProblem.correct_options.length === 1
+                              ? `rounded-full ${  // Radio style for single choice
+                                  isSelected 
+                                    ? 'border-blue-500 bg-blue-500 text-white' 
+                                    : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
+                                }`
+                              : `rounded ${  // Square style for multiple choice
+                                  isSelected 
+                                    ? 'border-blue-500 bg-blue-500 text-white' 
+                                    : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
+                                }`
+                          }`}>
+                            {isSelected ? (
+                              currentProblem.correct_options.length === 1 ? (
+                                <Circle className="h-4 w-4 fill-current" />
                               ) : (
-                                option.key
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <Label 
-                                htmlFor={`option_${option.key}`} 
-                                className="cursor-pointer text-base leading-relaxed text-gray-900"
-                              >
-                                <span className="font-semibold mr-2">{option.key})</span>
-                                {option.text}
-                              </Label>
-                            </div>
-                            <Checkbox
-                              id={`option_${option.key}`}
-                              checked={isSelected}
-                              onCheckedChange={(checked) => 
-                                handleAnswerChange(currentProblem.id, option.key, checked as boolean)
-                              }
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            />
+                                <CheckCircle className="h-5 w-5" />
+                              )
+                            ) : (
+                              option.key
+                            )}
                           </div>
+                          <div className="flex-1">
+                            <Label 
+                              htmlFor={`option_${option.key}`} 
+                              className="cursor-pointer text-base leading-relaxed text-gray-900"
+                            >
+                              <span className="font-semibold mr-2">{option.key})</span>
+                              {option.text}
+                            </Label>
+                          </div>
+                          <Checkbox
+                            id={`option_${option.key}`}
+                            checked={isSelected}
+                            onCheckedChange={(checked) => 
+                              handleAnswerChange(currentProblem.id, option.key, checked as boolean)
+                            }
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          />
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })}
+                </div>
                 )}
 
                 {/* Navigation */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,14 @@ const ProfileCompletion: React.FC = () => {
   const { user, updateUserProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Debug logging
+  useEffect(() => {
+    console.log('ProfileCompletion component mounted');
+    console.log('User data:', user);
+    console.log('User auth_provider:', user?.auth_provider);
+    console.log('User profile_completed:', user?.profile_completed);
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,10 +82,15 @@ const ProfileCompletion: React.FC = () => {
     }
   };
 
+  // Debug: Check authentication
   if (!user?.auth_provider || user.auth_provider !== 'otpless') {
+    console.log('User not authenticated properly, redirecting to login');
     navigate('/login');
     return null;
   }
+
+  // Add a fallback render with debug info
+  console.log('Rendering ProfileCompletion component');
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
