@@ -44,9 +44,9 @@ const Layout = ({ children }: LayoutProps) => {
     },
     { 
       label: 'Question Bank', 
-      path: '/admin/mcq', 
+      path: '/admin/questions', 
       icon: FileText,
-      description: 'Manage MCQ questions for assessments',
+      description: 'Manage MCQ and Long Answer questions',
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       borderColor: 'border-purple-200'

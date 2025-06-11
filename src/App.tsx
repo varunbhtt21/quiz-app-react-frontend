@@ -15,6 +15,9 @@ import StudentDashboard from "./pages/student/StudentDashboard";
 import MCQList from "./pages/admin/MCQList";
 import CreateMCQ from "./pages/admin/CreateMCQ";
 import EditMCQ from "./pages/admin/EditMCQ";
+import QuestionList from "./pages/admin/QuestionList";
+import CreateQuestion from "./pages/admin/CreateQuestion";
+import EditQuestion from "./pages/admin/EditQuestion";
 import TagManagement from "./pages/admin/TagManagement";
 import CourseList from "./pages/admin/CourseList";
 import CreateCourse from "./pages/admin/CreateCourse";
@@ -72,15 +75,32 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       
-      {/* MCQ Management Routes */}
+      {/* Question Management Routes */}
+      <Route path="/admin/questions" element={
+        <ProtectedRoute requireAdmin>
+          <QuestionList />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/questions/create" element={
+        <ProtectedRoute requireAdmin>
+          <CreateQuestion />
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/questions/:id/edit" element={
+        <ProtectedRoute requireAdmin>
+          <EditQuestion />
+        </ProtectedRoute>
+      } />
+
+      {/* Legacy MCQ Management Routes (redirect to questions) */}
       <Route path="/admin/mcq" element={
         <ProtectedRoute requireAdmin>
-          <MCQList />
+          <QuestionList />
         </ProtectedRoute>
       } />
       <Route path="/admin/mcq/create" element={
         <ProtectedRoute requireAdmin>
-          <CreateMCQ />
+          <CreateQuestion />
         </ProtectedRoute>
       } />
       <Route path="/admin/mcq/edit/:id" element={

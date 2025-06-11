@@ -5,6 +5,73 @@ interface ApiResponse<T> {
   error?: string;
 }
 
+// Question Type Enums
+export enum QuestionType {
+  MCQ = 'mcq',
+  LONG_ANSWER = 'long_answer'
+}
+
+export enum ScoringType {
+  MANUAL = 'manual',
+  KEYWORD_BASED = 'keyword_based',
+  AUTO = 'auto'
+}
+
+// Question interfaces
+export interface QuestionData {
+  title: string;
+  description: string;
+  question_type: QuestionType;
+  explanation?: string;
+  tag_ids?: string[];
+  
+  // MCQ-specific fields
+  option_a?: string;
+  option_b?: string;
+  option_c?: string;
+  option_d?: string;
+  correct_options?: string[];
+  
+  // Long Answer specific fields
+  max_word_count?: number;
+  sample_answer?: string;
+  scoring_type?: ScoringType;
+  keywords_for_scoring?: string[];
+}
+
+export interface QuestionResponse {
+  id: string;
+  title: string;
+  description: string;
+  question_type: QuestionType;
+  explanation?: string;
+  image_url?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  tags: TagInfo[];
+  needs_tags: boolean;
+  
+  // MCQ-specific fields
+  option_a?: string;
+  option_b?: string;
+  option_c?: string;
+  option_d?: string;
+  correct_options?: string[];
+  
+  // Long Answer specific fields
+  max_word_count?: number;
+  sample_answer?: string;
+  scoring_type?: ScoringType;
+  keywords_for_scoring?: string[];
+}
+
+export interface TagInfo {
+  id: string;
+  name: string;
+  color: string;
+}
+
 class ApiService {
   private getHeaders(): HeadersInit {
     const token = localStorage.getItem('access_token');
@@ -73,8 +140,8 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  // MCQ Management
-  async getMCQs(skip = 0, limit = 100, search?: string, tagIds?: string, tagNames?: string, createdBy?: string, needsTags?: boolean) {
+  // Question Management (updated from MCQ Management)
+  async getQuestions(skip = 0, limit = 100, search?: string, tagIds?: string, tagNames?: string, createdBy?: string, needsTags?: boolean, questionType?: QuestionType) {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -100,6 +167,10 @@ class ApiService {
       params.append('needs_tags', needsTags.toString());
     }
     
+    if (questionType !== undefined) {
+      params.append('question_type', questionType);
+    }
+    
     const response = await fetch(`${API_BASE_URL}/mcq/?${params}`, {
       headers: this.getHeaders(),
     });
@@ -107,7 +178,12 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async getMCQsList(skip = 0, limit = 100, search?: string, tagIds?: string) {
+  // Backward compatibility - keep old method name
+  async getMCQs(skip = 0, limit = 100, search?: string, tagIds?: string, tagNames?: string, createdBy?: string, needsTags?: boolean) {
+    return this.getQuestions(skip, limit, search, tagIds, tagNames, createdBy, needsTags, QuestionType.MCQ);
+  }
+
+  async getQuestionsList(skip = 0, limit = 100, search?: string, tagIds?: string, questionType?: QuestionType) {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -121,6 +197,10 @@ class ApiService {
       params.append('tag_ids', tagIds);
     }
     
+    if (questionType !== undefined) {
+      params.append('question_type', questionType);
+    }
+    
     const response = await fetch(`${API_BASE_URL}/mcq/list?${params}`, {
       headers: this.getHeaders(),
     });
@@ -128,7 +208,12 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async getMCQ(id: string) {
+  // Backward compatibility
+  async getMCQsList(skip = 0, limit = 100, search?: string, tagIds?: string) {
+    return this.getQuestionsList(skip, limit, search, tagIds, QuestionType.MCQ);
+  }
+
+  async getQuestion(id: string): Promise<QuestionResponse> {
     const response = await fetch(`${API_BASE_URL}/mcq/${id}`, {
       headers: this.getHeaders(),
     });
@@ -136,7 +221,12 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async createMCQ(data: any): Promise<any> {
+  // Backward compatibility
+  async getMCQ(id: string) {
+    return this.getQuestion(id);
+  }
+
+  async createQuestion(data: QuestionData): Promise<QuestionResponse> {
     const response = await fetch(`${API_BASE_URL}/mcq`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -145,13 +235,18 @@ class ApiService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || 'Failed to create MCQ');
+      throw new Error(error.detail || 'Failed to create question');
     }
 
     return response.json();
   }
 
-  async updateMCQ(id: string, data: any): Promise<any> {
+  // Backward compatibility
+  async createMCQ(data: any): Promise<any> {
+    return this.createQuestion({ ...data, question_type: QuestionType.MCQ });
+  }
+
+  async updateQuestion(id: string, data: Partial<QuestionData>): Promise<QuestionResponse> {
     const response = await fetch(`${API_BASE_URL}/mcq/${id}`, {
       method: 'PUT',
       headers: this.getHeaders(),
@@ -160,13 +255,18 @@ class ApiService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || 'Failed to update MCQ');
+      throw new Error(error.detail || 'Failed to update question');
     }
 
     return response.json();
   }
 
-  async uploadMCQImage(id: string, imageFile: File): Promise<any> {
+  // Backward compatibility
+  async updateMCQ(id: string, data: any): Promise<any> {
+    return this.updateQuestion(id, data);
+  }
+
+  async uploadQuestionImage(id: string, imageFile: File): Promise<any> {
     const formData = new FormData();
     formData.append('image', imageFile);
     
@@ -186,7 +286,12 @@ class ApiService {
     return response.json();
   }
 
-  async removeMCQImage(id: string): Promise<any> {
+  // Backward compatibility
+  async uploadMCQImage(id: string, imageFile: File): Promise<any> {
+    return this.uploadQuestionImage(id, imageFile);
+  }
+
+  async removeQuestionImage(id: string): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/mcq/${id}/remove-image`, {
       method: 'DELETE',
       headers: this.getHeaders()
@@ -200,13 +305,23 @@ class ApiService {
     return response.json();
   }
 
-  async deleteMCQ(id: string) {
+  // Backward compatibility
+  async removeMCQImage(id: string): Promise<any> {
+    return this.removeQuestionImage(id);
+  }
+
+  async deleteQuestion(id: string) {
     const response = await fetch(`${API_BASE_URL}/mcq/${id}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
     });
     
     return this.handleResponse(response);
+  }
+
+  // Backward compatibility
+  async deleteMCQ(id: string) {
+    return this.deleteQuestion(id);
   }
 
   async downloadMCQTemplate(): Promise<Blob> {
@@ -462,7 +577,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async submitContest(contestId: string, answers: Record<string, string[]>, timeTaken?: number) {
+  async submitContest(contestId: string, answers: Record<string, string[] | string>, timeTaken?: number) {
     const response = await fetch(`${API_BASE_URL}/contests/${contestId}/submit`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -737,7 +852,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async autoSubmitContest(contestId: string, answers: Record<string, string[]>, timeTaken?: number) {
+  async autoSubmitContest(contestId: string, answers: Record<string, string[] | string>, timeTaken?: number) {
     const response = await fetch(`${API_BASE_URL}/contests/${contestId}/auto-submit`, {
       method: 'POST',
       headers: this.getHeaders(),

@@ -35,7 +35,7 @@ export const useContestTimer = ({
   onTimeExpired,
   onStatusChange,
   updateInterval = 1000,
-  serverSyncInterval = 60000, // Sync every minute
+  serverSyncInterval = 300000, // Sync every 5 minutes instead of every minute
 }: UseContestTimerOptions): UseContestTimerResult => {
   const { serverNow, isConnected: isServerSynced, offset: serverOffset, syncWithServer: syncServerTime } = useServerTime();
   

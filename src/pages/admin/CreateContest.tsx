@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Save, Search, Home, ChevronRight, Loader2, Trophy, Calendar, Clock, Target, Users, BookOpen, CheckCircle, AlertCircle, FileText, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
-import { apiService } from '../../services/api';
+import { apiService, QuestionType, QuestionResponse } from '../../services/api';
 
 interface ContestFormData {
   name: string;
@@ -21,28 +21,16 @@ interface ContestFormData {
   end_time: string;
 }
 
-interface MCQProblem {
-  id: string;
-  title: string;
-  description: string;
-  option_a: string;
-  option_b: string;
-  option_c: string;
-  option_d: string;
-  correct_options: string[];
-  needs_tags: boolean;
-}
-
 interface Course {
   id: string;
   name: string;
-  description?: string;
+  description: string;
 }
 
 interface SelectedProblem {
   problem_id: string;
   marks: number;
-  problem: MCQProblem;
+  problem: QuestionResponse;
 }
 
 const CreateContest = () => {
@@ -50,7 +38,7 @@ const CreateContest = () => {
   const [selectedProblems, setSelectedProblems] = useState<SelectedProblem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [courses, setCourses] = useState<Course[]>([]);
-  const [mcqProblems, setMcqProblems] = useState<MCQProblem[]>([]);
+  const [questions, setQuestions] = useState<QuestionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<ContestFormData>();
@@ -63,18 +51,18 @@ const CreateContest = () => {
     try {
       setLoading(true);
       
-      const [coursesData, mcqData] = await Promise.all([
+      const [coursesData, questionsData] = await Promise.all([
         apiService.getCourses(0, 1000) as Promise<Course[]>,
-        apiService.getMCQs(0, 1000) as Promise<MCQProblem[]>
+        apiService.getQuestions(0, 1000) as Promise<QuestionResponse[]>
       ]);
       
       setCourses(coursesData);
       
       // Filter out questions that need tags - only show properly tagged questions
-      const taggedQuestions = mcqData.filter(mcq => !mcq.needs_tags);
-      const questionsNeedingTags = mcqData.filter(mcq => mcq.needs_tags);
+      const taggedQuestions = questionsData.filter(q => !q.needs_tags);
+      const questionsNeedingTags = questionsData.filter(q => q.needs_tags);
       
-      setMcqProblems(taggedQuestions);
+      setQuestions(taggedQuestions);
       
       if (coursesData.length === 0) {
         toast({
@@ -93,8 +81,8 @@ const CreateContest = () => {
           });
         } else {
           toast({
-            title: "No MCQ Problems Available",
-            description: "Please create MCQ problems first before creating contests.",
+            title: "No Questions Available",
+            description: "Please create questions first before creating contests.",
             variant: "destructive"
           });
         }
@@ -112,7 +100,7 @@ const CreateContest = () => {
       console.error('Error loading data:', error);
       toast({
         title: "Error",
-        description: "Failed to load courses and MCQ problems",
+        description: "Failed to load courses and questions",
         variant: "destructive"
       });
     } finally {
@@ -120,20 +108,20 @@ const CreateContest = () => {
     }
   };
 
-  const filteredMCQs = mcqProblems.filter(mcq =>
-    mcq.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    mcq.description.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredQuestions = questions.filter(q =>
+    q.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    q.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleProblemSelect = (problem: MCQProblem, selected: boolean) => {
+  const handleProblemSelect = (question: QuestionResponse, selected: boolean) => {
     if (selected) {
       setSelectedProblems([...selectedProblems, { 
-        problem_id: problem.id, 
+        problem_id: question.id, 
         marks: 1, 
-        problem 
+        problem: question 
       }]);
     } else {
-      setSelectedProblems(selectedProblems.filter(p => p.problem_id !== problem.id));
+      setSelectedProblems(selectedProblems.filter(p => p.problem_id !== question.id));
     }
   };
 
@@ -149,7 +137,7 @@ const CreateContest = () => {
     if (selectedProblems.length === 0) {
       toast({
         title: "Error",
-        description: "Please select at least one problem",
+        description: "Please select at least one question",
         variant: "destructive"
       });
       return;
@@ -224,7 +212,7 @@ const CreateContest = () => {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="flex items-center space-x-2">
             <Loader2 className="h-6 w-6 animate-spin" />
-            <span>Loading courses and MCQ problems...</span>
+            <span>Loading courses and questions...</span>
           </div>
         </div>
       </Layout>
@@ -342,7 +330,7 @@ const CreateContest = () => {
                 <ul className="space-y-2 text-orange-800">
                   <li className="flex items-center">
                     <div className="w-1.5 h-1.5 bg-orange-600 rounded-full mr-2"></div>
-                    Mix difficulty levels appropriately
+                    Mix MCQ and Long Answer questions
                   </li>
                   <li className="flex items-center">
                     <div className="w-1.5 h-1.5 bg-orange-600 rounded-full mr-2"></div>
@@ -410,7 +398,7 @@ const CreateContest = () => {
           </Card>
         )}
 
-        {mcqProblems.length === 0 ? (
+        {questions.length === 0 ? (
           <Card className="shadow-lg border-0 border-l-4 border-l-amber-500 bg-gradient-to-r from-amber-50 to-yellow-50">
             <CardContent className="p-6">
               <div className="flex items-center space-x-3">
@@ -424,7 +412,7 @@ const CreateContest = () => {
                 <Button 
                   variant="outline" 
                   className="ml-auto border-amber-300 text-amber-700 hover:bg-amber-100"
-                  onClick={() => navigate('/admin/mcq')}
+                  onClick={() => navigate('/admin/questions')}
                 >
                   Go to Question Bank
                 </Button>
@@ -450,7 +438,7 @@ const CreateContest = () => {
                   <Input
                     id="name"
                     {...register('name', { required: 'Contest name is required' })}
-                    placeholder="e.g., Programming Fundamentals Quiz"
+                    placeholder="e.g., Midterm Programming Quiz - Data Structures"
                     className="h-12 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
                   />
                   {errors.name && (
@@ -459,6 +447,7 @@ const CreateContest = () => {
                       {errors.name.message}
                     </p>
                   )}
+                  <p className="text-xs text-gray-500">Choose a clear, descriptive name that students will recognize</p>
                 </div>
 
                 <div className="space-y-3">
@@ -512,6 +501,7 @@ const CreateContest = () => {
                         {errors.start_time.message}
                       </p>
                     )}
+                    <p className="text-xs text-gray-500">When students can start taking the contest</p>
                   </div>
 
                   <div className="space-y-3">
@@ -528,6 +518,7 @@ const CreateContest = () => {
                         {errors.end_time.message}
                       </p>
                     )}
+                    <p className="text-xs text-gray-500">Contest will automatically end at this time</p>
                   </div>
                 </div>
               </CardContent>
@@ -554,7 +545,7 @@ const CreateContest = () => {
                 </div>
               </CardHeader>
               <CardContent className="p-8">
-                {filteredMCQs.length === 0 ? (
+                {filteredQuestions.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Search className="h-8 w-8 text-gray-400" />
@@ -563,41 +554,67 @@ const CreateContest = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredMCQs.map((mcq) => {
-                      const isSelected = selectedProblems.some(p => p.problem_id === mcq.id);
-                      const selectedProblem = selectedProblems.find(p => p.problem_id === mcq.id);
+                    {filteredQuestions.map((question) => {
+                      const isSelected = selectedProblems.some(p => p.problem_id === question.id);
+                      const selectedProblem = selectedProblems.find(p => p.problem_id === question.id);
 
                       return (
-                        <div key={mcq.id} className={`border rounded-lg p-6 transition-all ${isSelected ? 'border-orange-300 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <div key={question.id} className={`border rounded-lg p-6 transition-all ${isSelected ? 'border-orange-300 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
                           <div className="flex items-start space-x-4">
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={(checked) => 
-                                handleProblemSelect(mcq, checked as boolean)
+                                handleProblemSelect(question, checked as boolean)
                               }
                               className="mt-1 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
                             />
                             <div className="flex-1">
-                              <h4 className="font-semibold text-gray-900 mb-2">{mcq.title}</h4>
-                              <p className="text-sm text-gray-600 mb-3">{mcq.description}</p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                <div className="flex items-center space-x-2">
-                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">A</span>
-                                  <span>{mcq.option_a}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">B</span>
-                                  <span>{mcq.option_b}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">C</span>
-                                  <span>{mcq.option_c}</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">D</span>
-                                  <span>{mcq.option_d}</span>
-                                </div>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h4 className="font-semibold text-gray-900">{question.title}</h4>
+                                <Badge 
+                                  variant="outline" 
+                                  className={question.question_type === QuestionType.MCQ 
+                                    ? "border-blue-200 text-blue-700 bg-blue-50" 
+                                    : "border-green-200 text-green-700 bg-green-50"
+                                  }
+                                >
+                                  {question.question_type === QuestionType.MCQ ? 'MCQ' : 'Long Answer'}
+                                </Badge>
                               </div>
+                              <p className="text-sm text-gray-600 mb-3">{question.description}</p>
+                              
+                              {/* Display question type specific content */}
+                              {question.question_type === QuestionType.MCQ && question.option_a && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">A</span>
+                                    <span>{question.option_a}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">B</span>
+                                    <span>{question.option_b}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">C</span>
+                                    <span>{question.option_c}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">D</span>
+                                    <span>{question.option_d}</span>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {question.question_type === QuestionType.LONG_ANSWER && (
+                                <div className="text-sm text-gray-600 space-y-1">
+                                  {question.max_word_count && (
+                                    <p>Max words: {question.max_word_count}</p>
+                                  )}
+                                  {question.scoring_type && (
+                                    <p>Scoring: {question.scoring_type === 'manual' ? 'Manual Review' : 'Keyword-based'}</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                             {isSelected && (
                               <div className="flex items-center space-x-2 bg-white p-3 rounded-lg border border-orange-200">
@@ -608,7 +625,7 @@ const CreateContest = () => {
                                   max="10"
                                   value={selectedProblem?.marks || 1}
                                   onChange={(e) => 
-                                    updateProblemMarks(mcq.id, parseInt(e.target.value) || 1)
+                                    updateProblemMarks(question.id, parseInt(e.target.value) || 1)
                                   }
                                   className="w-20 h-8 text-center border-gray-300 focus:border-orange-500 focus:ring-orange-500"
                                 />
@@ -654,7 +671,18 @@ const CreateContest = () => {
                     <div className="space-y-2">
                       {selectedProblems.map((p) => (
                         <div key={p.problem_id} className="flex justify-between items-center p-3 bg-white rounded-lg border border-green-100">
-                          <span className="font-medium text-gray-900">{p.problem.title}</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-gray-900">{p.problem.title}</span>
+                            <Badge 
+                              variant="outline" 
+                              className={p.problem.question_type === QuestionType.MCQ 
+                                ? "border-blue-200 text-blue-700 bg-blue-50" 
+                                : "border-purple-200 text-purple-700 bg-purple-50"
+                              }
+                            >
+                              {p.problem.question_type === QuestionType.MCQ ? 'MCQ' : 'Long Answer'}
+                            </Badge>
+                          </div>
                           <Badge className="bg-green-100 text-green-800">{p.marks} marks</Badge>
                         </div>
                       ))}
@@ -678,7 +706,7 @@ const CreateContest = () => {
               <Button 
                 type="submit" 
                 className="px-8 bg-orange-600 hover:bg-orange-700 flex items-center space-x-2"
-                disabled={submitting || courses.length === 0 || mcqProblems.length === 0}
+                disabled={submitting || courses.length === 0 || questions.length === 0}
               >
                 {submitting ? (
                   <>

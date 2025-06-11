@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, ArrowRight, Clock, Send, Loader2, AlertTriangle, CheckCircle, Circle, BookOpen, Target, Timer, Award, Check, CheckSquare, Shield } from 'lucide-react';
@@ -18,12 +19,13 @@ import { formatDateTime, formatTimer } from '../../utils/timeUtils';
 
 interface ContestProblem {
   id: string;
+  question_type: string;
   title: string;
   description: string;
-  option_a: string;
-  option_b: string;
-  option_c: string;
-  option_d: string;
+  option_a?: string;
+  option_b?: string;
+  option_c?: string;
+  option_d?: string;
   marks: number;
   order_index: number;
   image_url?: string;
@@ -49,7 +51,7 @@ const ContestTaking = () => {
   const [contest, setContest] = useState<Contest | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [answers, setAnswers] = useState<Record<string, string[] | string>>({});
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -86,7 +88,22 @@ const ContestTaking = () => {
       const totalContestTime = endTime - startTime;
       const timeTaken = Math.floor(totalContestTime / 1000);
 
-      await apiService.submitContest(contest.id, answers, timeTaken);
+      // Convert answers to the format expected by the API
+      const formattedAnswers = Object.keys(answers).reduce((acc, questionId) => {
+        const answer = answers[questionId];
+        const problem = contest.problems.find(p => p.id === questionId);
+        
+        if (problem?.question_type === 'long_answer') {
+          // Long Answer questions expect string format
+          acc[questionId] = typeof answer === 'string' ? answer : '';
+        } else {
+          // MCQ questions expect array format
+          acc[questionId] = Array.isArray(answer) ? answer : [answer];
+        }
+        return acc;
+      }, {} as Record<string, string[] | string>);
+      
+      await apiService.submitContest(contest.id, formattedAnswers, timeTaken);
       setHasSubmitted(true);
 
       navigate('/student/dashboard');
@@ -376,7 +393,7 @@ const ContestTaking = () => {
 
   const handleAnswerChange = (questionId: string, option: string, checked: boolean) => {
     setAnswers(prev => {
-      const currentAnswers = prev[questionId] || [];
+      const currentAnswers = Array.isArray(prev[questionId]) ? prev[questionId] as string[] : [];
       const currentProblem = contest?.problems.find(p => p.id === questionId);
       
       if (checked) {
@@ -393,6 +410,13 @@ const ContestTaking = () => {
     });
   };
 
+  const handleLongAnswerChange = (questionId: string, value: string) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: value
+    }));
+  };
+
   const handleSubmit = async () => {
     if (!contest) return;
     
@@ -406,7 +430,22 @@ const ContestTaking = () => {
       const totalContestTime = endTime - startTime;
       const timeTaken = Math.floor((totalContestTime - (timeRemaining * 1000)) / 1000);
 
-      await apiService.submitContest(contest.id, answers, timeTaken);
+      // Convert answers to the format expected by the API
+      const formattedAnswers = Object.keys(answers).reduce((acc, questionId) => {
+        const answer = answers[questionId];
+        const problem = contest.problems.find(p => p.id === questionId);
+        
+        if (problem?.question_type === 'long_answer') {
+          // Long Answer questions expect string format
+          acc[questionId] = typeof answer === 'string' ? answer : '';
+        } else {
+          // MCQ questions expect array format
+          acc[questionId] = Array.isArray(answer) ? answer : [answer];
+        }
+        return acc;
+      }, {} as Record<string, string[] | string>);
+      
+      await apiService.submitContest(contest.id, formattedAnswers, timeTaken);
 
       // Deactivate contest security
       setContestInProgress(false);
@@ -982,7 +1021,7 @@ const ContestTaking = () => {
 
   const currentProblem = contest.problems[currentQuestion];
   const isLastQuestion = currentQuestion === contest.problems.length - 1;
-  const currentAnswers = answers[currentProblem.id] || [];
+  const currentAnswers = Array.isArray(answers[currentProblem.id]) ? answers[currentProblem.id] as string[] : [];
 
   const answeredQuestions = Object.keys(answers).length;
   const totalQuestions = contest.problems.length;
@@ -1068,14 +1107,23 @@ const ContestTaking = () => {
                       Question {currentQuestion + 1} of {contest.problems.length}
                     </CardTitle>
                     <p className="text-gray-600 text-sm mt-1">
-                      {currentProblem.correct_options.length > 1 
-                        ? 'Choose all correct answers (multiple selections allowed)' 
-                        : 'Choose the correct answer (single selection only)'}
+                      {currentProblem.question_type === 'long_answer' 
+                        ? 'Write a detailed answer to the question' 
+                        : currentProblem.correct_options.length > 1 
+                          ? 'Choose all correct answers (multiple selections allowed)' 
+                          : 'Choose the correct answer (single selection only)'}
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Badge className={`${getQuestionTypeColor(currentProblem.correct_options)} px-3 py-1.5 font-medium`}>
-                      {currentProblem.correct_options.length > 1 ? (
+                    <Badge className={`${currentProblem.question_type === 'long_answer' 
+                        ? 'bg-purple-100 text-purple-800 border-purple-200' 
+                        : getQuestionTypeColor(currentProblem.correct_options)} px-3 py-1.5 font-medium`}>
+                      {currentProblem.question_type === 'long_answer' ? (
+                        <>
+                          <BookOpen className="h-4 w-4 mr-1" />
+                          Long Answer
+                        </>
+                      ) : currentProblem.correct_options.length > 1 ? (
                         <>
                           <CheckSquare className="h-4 w-4 mr-1" />
                           {getQuestionType(currentProblem.correct_options)}
@@ -1119,72 +1167,90 @@ const ContestTaking = () => {
                   )}
                 </div>
 
-                {/* Options */}
-                <div className="space-y-4">
-                  {[
-                    { key: 'A', text: currentProblem.option_a },
-                    { key: 'B', text: currentProblem.option_b },
-                    { key: 'C', text: currentProblem.option_c },
-                    { key: 'D', text: currentProblem.option_d }
-                  ].map((option) => {
-                    const isSelected = currentAnswers.includes(option.key);
-                    
-                    return (
-                      <div 
-                        key={option.key} 
-                        className={`group relative p-4 border-2 rounded-xl transition-all duration-200 cursor-pointer hover:shadow-md ${
-                          isSelected 
-                            ? 'border-blue-500 bg-blue-50 shadow-md' 
-                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
-                        }`}
-                        onClick={() => handleAnswerChange(currentProblem.id, option.key, !isSelected)}
-                      >
-                        <div className="flex items-start space-x-4">
-                          <div className={`flex-shrink-0 w-8 h-8 border-2 flex items-center justify-center font-bold text-sm transition-colors ${
-                            currentProblem.correct_options.length === 1
-                              ? `rounded-full ${  // Radio style for single choice
-                                  isSelected 
-                                    ? 'border-blue-500 bg-blue-500 text-white' 
-                                    : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
-                                }`
-                              : `rounded ${  // Square style for multiple choice
-                                  isSelected 
-                                    ? 'border-blue-500 bg-blue-500 text-white' 
-                                    : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
-                                }`
-                          }`}>
-                            {isSelected ? (
-                              currentProblem.correct_options.length === 1 ? (
-                                <Circle className="h-4 w-4 fill-current" />
+                {/* Options - MCQ vs Long Answer */}
+                {currentProblem.question_type === 'long_answer' ? (
+                  <div className="space-y-4">
+                    <Label htmlFor="long-answer" className="text-base font-medium text-gray-900">
+                      Your Answer
+                    </Label>
+                    <Textarea
+                      id="long-answer"
+                      placeholder="Type your answer here..."
+                      value={typeof answers[currentProblem.id] === 'string' ? answers[currentProblem.id] as string : ''}
+                      onChange={(e) => handleLongAnswerChange(currentProblem.id, e.target.value)}
+                      className="min-h-[200px] resize-y"
+                    />
+                    <p className="text-sm text-gray-500">
+                      Write a detailed answer to the question above. You can format your response with proper paragraphs and explanations.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {[
+                      { key: 'A', text: currentProblem.option_a },
+                      { key: 'B', text: currentProblem.option_b },
+                      { key: 'C', text: currentProblem.option_c },
+                      { key: 'D', text: currentProblem.option_d }
+                    ].filter(option => option.text).map((option) => {
+                      const isSelected = currentAnswers.includes(option.key);
+                      
+                      return (
+                        <div 
+                          key={option.key} 
+                          className={`group relative p-4 border-2 rounded-xl transition-all duration-200 cursor-pointer hover:shadow-md ${
+                            isSelected 
+                              ? 'border-blue-500 bg-blue-50 shadow-md' 
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                          }`}
+                          onClick={() => handleAnswerChange(currentProblem.id, option.key, !isSelected)}
+                        >
+                          <div className="flex items-start space-x-4">
+                            <div className={`flex-shrink-0 w-8 h-8 border-2 flex items-center justify-center font-bold text-sm transition-colors ${
+                              currentProblem.correct_options.length === 1
+                                ? `rounded-full ${  // Radio style for single choice
+                                    isSelected 
+                                      ? 'border-blue-500 bg-blue-500 text-white' 
+                                      : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
+                                  }`
+                                : `rounded ${  // Square style for multiple choice
+                                    isSelected 
+                                      ? 'border-blue-500 bg-blue-500 text-white' 
+                                      : 'border-gray-300 text-gray-600 group-hover:border-blue-400'
+                                  }`
+                            }`}>
+                              {isSelected ? (
+                                currentProblem.correct_options.length === 1 ? (
+                                  <Circle className="h-4 w-4 fill-current" />
+                                ) : (
+                                  <CheckCircle className="h-5 w-5" />
+                                )
                               ) : (
-                                <CheckCircle className="h-5 w-5" />
-                              )
-                            ) : (
-                              option.key
-                            )}
+                                option.key
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <Label 
+                                htmlFor={`option_${option.key}`} 
+                                className="cursor-pointer text-base leading-relaxed text-gray-900"
+                              >
+                                <span className="font-semibold mr-2">{option.key})</span>
+                                {option.text}
+                              </Label>
+                            </div>
+                            <Checkbox
+                              id={`option_${option.key}`}
+                              checked={isSelected}
+                              onCheckedChange={(checked) => 
+                                handleAnswerChange(currentProblem.id, option.key, checked as boolean)
+                              }
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            />
                           </div>
-                          <div className="flex-1">
-                            <Label 
-                              htmlFor={`option_${option.key}`} 
-                              className="cursor-pointer text-base leading-relaxed text-gray-900"
-                            >
-                              <span className="font-semibold mr-2">{option.key})</span>
-                              {option.text}
-                            </Label>
-                          </div>
-                          <Checkbox
-                            id={`option_${option.key}`}
-                            checked={isSelected}
-                            onCheckedChange={(checked) => 
-                              handleAnswerChange(currentProblem.id, option.key, checked as boolean)
-                            }
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          />
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Navigation */}
                 <div className="flex justify-between items-center pt-8 mt-8 border-t">
@@ -1199,8 +1265,18 @@ const ContestTaking = () => {
                   </Button>
 
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <Circle className={`h-3 w-3 ${currentAnswers.length > 0 ? 'fill-green-500 text-green-500' : 'text-gray-300'}`} />
-                    <span>{currentAnswers.length > 0 ? 'Answered' : 'Not answered'}</span>
+                    {(() => {
+                      const answer = answers[currentProblem.id];
+                      const isAnswered = currentProblem.question_type === 'long_answer' 
+                        ? (typeof answer === 'string' && answer.trim().length > 0)
+                        : (Array.isArray(answer) && answer.length > 0);
+                      return (
+                        <>
+                          <Circle className={`h-3 w-3 ${isAnswered ? 'fill-green-500 text-green-500' : 'text-gray-300'}`} />
+                          <span>{isAnswered ? 'Answered' : 'Not answered'}</span>
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {isLastQuestion ? (
@@ -1282,7 +1358,13 @@ const ContestTaking = () => {
                       <span className="text-sm font-medium text-blue-900">Quick Tips</span>
                     </div>
                     <ul className="text-xs text-blue-800 space-y-1">
-                      {currentProblem.correct_options.length > 1 ? (
+                      {currentProblem.question_type === 'long_answer' ? (
+                        <>
+                          <li>• Write a detailed and well-structured answer</li>
+                          <li>• Include relevant examples and explanations</li>
+                          <li>• Check your spelling and grammar</li>
+                        </>
+                      ) : currentProblem.correct_options.length > 1 ? (
                         <>
                           <li>• You can select multiple options for this question</li>
                           <li>• Look for all correct answers</li>
