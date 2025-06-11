@@ -99,6 +99,23 @@ class OTPLESSService {
   }
 
   /**
+   * Check if email is pre-registered (PENDING status)
+   */
+  async checkEmailStatus(email: string): Promise<{
+    is_pre_registered: boolean;
+    status: 'invalid' | 'available' | 'pending' | 'taken';
+    message?: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/auth/otpless/check-email`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  /**
    * Complete user profile after first OTPLESS login
    */
   async completeProfile(data: ProfileCompletionData): Promise<{ success: boolean; user: any }> {

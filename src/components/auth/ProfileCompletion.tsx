@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { User, Mail, Check } from 'lucide-react';
+import { User, Mail, Check, AlertCircle, Link } from 'lucide-react';
 import { otplessService } from '@/services/otpless';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,6 +13,12 @@ const ProfileCompletion: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{
+    is_pre_registered: boolean;
+    status: 'invalid' | 'available' | 'pending' | 'taken';
+    message?: string;
+  } | null>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const { user, updateUserProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -24,6 +30,30 @@ const ProfileCompletion: React.FC = () => {
     console.log('User auth_provider:', user?.auth_provider);
     console.log('User profile_completed:', user?.profile_completed);
   }, [user]);
+
+  // Check email status when email changes
+  useEffect(() => {
+    const checkEmail = async () => {
+      if (!email || !email.includes('@') || email.length < 5) {
+        setEmailStatus(null);
+        return;
+      }
+
+      setIsCheckingEmail(true);
+      try {
+        const status = await otplessService.checkEmailStatus(email);
+        setEmailStatus(status);
+      } catch (error) {
+        console.error('Error checking email status:', error);
+        setEmailStatus(null);
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    };
+
+    const timeoutId = setTimeout(checkEmail, 500); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +76,16 @@ const ProfileCompletion: React.FC = () => {
       return;
     }
 
+    // Block submission if email is taken by another active user
+    if (emailStatus?.status === 'taken') {
+      toast({
+        title: "⚠️ Email Already Taken",
+        description: "This email is already registered by another user. Please use a different email.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -63,8 +103,10 @@ const ProfileCompletion: React.FC = () => {
       });
 
       toast({
-        title: "✨ Profile Completed!",
-        description: "Your profile has been successfully set up.",
+        title: emailStatus?.status === 'pending' ? "🔗 Account Linked!" : "✨ Profile Completed!",
+        description: emailStatus?.status === 'pending' 
+          ? "Your account has been linked to your pre-registered email successfully!"
+          : "Your profile has been successfully set up.",
       });
 
       // Navigate to appropriate dashboard
@@ -150,28 +192,60 @@ const ProfileCompletion: React.FC = () => {
                   placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
+                  className={`pl-10 ${
+                    emailStatus?.status === 'pending' ? 'border-blue-300 bg-blue-50' :
+                    emailStatus?.status === 'taken' ? 'border-red-300 bg-red-50' :
+                    emailStatus?.status === 'available' ? 'border-green-300 bg-green-50' : ''
+                  }`}
                   disabled={isLoading}
                   required
                 />
+                {isCheckingEmail && (
+                  <div className="absolute right-3 top-3">
+                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
+              
+              {/* Email status message */}
+              {emailStatus && (
+                <div className={`flex items-center space-x-2 text-sm p-2 rounded-lg ${
+                  emailStatus.status === 'pending' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                  emailStatus.status === 'taken' ? 'bg-red-50 text-red-700 border border-red-200' :
+                  emailStatus.status === 'available' ? 'bg-green-50 text-green-700 border border-green-200' : ''
+                }`}>
+                  {emailStatus.status === 'pending' && <Link className="h-4 w-4" />}
+                  {emailStatus.status === 'taken' && <AlertCircle className="h-4 w-4" />}
+                  {emailStatus.status === 'available' && <Check className="h-4 w-4" />}
+                  <span>
+                    {emailStatus.message || 
+                      (emailStatus.status === 'available' ? 'Email is available' : 
+                       emailStatus.status === 'pending' ? 'This email was pre-registered for you' :
+                       'Email is already taken')}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Submit button */}
             <Button
               type="submit"
-              disabled={isLoading || !name.trim() || !email.trim()}
-              className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 mt-6"
+              disabled={isLoading || !name.trim() || !email.trim() || emailStatus?.status === 'taken'}
+              className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Completing Profile...</span>
+                  <span>
+                    {emailStatus?.status === 'pending' ? 'Linking Account...' : 'Completing Profile...'}
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <Check className="h-5 w-5" />
-                  <span>Complete Profile</span>
+                  {emailStatus?.status === 'pending' ? <Link className="h-5 w-5" /> : <Check className="h-5 w-5" />}
+                  <span>
+                    {emailStatus?.status === 'pending' ? 'Link & Complete Profile' : 'Complete Profile'}
+                  </span>
                 </div>
               )}
             </Button>
