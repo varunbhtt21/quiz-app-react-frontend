@@ -941,7 +941,7 @@ class ApiService {
 
   // Contest time synchronization and timezone support
   async getServerTime() {
-    const response = await fetch(`${API_BASE_URL}/time`, {
+    const response = await fetch(`${API_BASE_URL}/contests/time`, {
       headers: this.getHeaders(),
     });
     
@@ -949,7 +949,7 @@ class ApiService {
   }
 
   async getContestTimeInfo(contestId: string) {
-    const response = await fetch(`${API_BASE_URL}/contest/${contestId}/time-info`, {
+    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/time`, {
       headers: this.getHeaders(),
     });
     
@@ -957,7 +957,7 @@ class ApiService {
   }
 
   async autoSubmitContest(contestId: string, answers: Record<string, string[] | string>, timeTaken?: number) {
-    const response = await fetch(`${API_BASE_URL}/contest/${contestId}/auto-submit`, {
+    const response = await fetch(`${API_BASE_URL}/contests/${contestId}/auto-submit`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify({ answers, time_taken: timeTaken }),
