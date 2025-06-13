@@ -66,17 +66,24 @@ const ContestTaking = () => {
   const [showNavigationWarning, setShowNavigationWarning] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
-  // Handle auto-submission when time expires
-  const handleAutoSubmit = useCallback(async () => {
+  // Handle auto-submission when time expires or user leaves
+  const handleAutoSubmit = useCallback(async (reason: 'time_expired' | 'user_left' = 'time_expired') => {
     if (!contest || submitting || hasSubmitted) return;
     
     // Deactivate contest security for auto-submit
     setContestInProgress(false);
     
-    toast({
-      title: "Time's Up!",
-      description: "Contest auto-submitted due to time limit"
-    });
+    if (reason === 'time_expired') {
+      toast({
+        title: "Time's Up!",
+        description: "Contest auto-submitted due to time limit"
+      });
+    } else {
+      toast({
+        title: "Contest Submitted",
+        description: "Your answers have been automatically submitted as you left the contest"
+      });
+    }
     
     try {
       setSubmitting(true);
@@ -89,11 +96,12 @@ const ContestTaking = () => {
       const timeTaken = Math.floor(totalContestTime / 1000);
 
       // Convert answers to the format expected by the API
-      const formattedAnswers = Object.keys(answers).reduce((acc, questionId) => {
-        const answer = answers[questionId];
-        const problem = contest.problems.find(p => p.id === questionId);
+      // IMPORTANT: Process ALL contest problems, not just answered ones
+      const formattedAnswers = contest.problems.reduce((acc, problem) => {
+        const questionId = problem.id;
+        const answer = answers[questionId]; // This might be undefined for unanswered questions
         
-        if (problem?.question_type === 'long_answer') {
+        if (problem.question_type === 'long_answer') {
           // Long Answer questions MUST be strings
           if (Array.isArray(answer)) {
             // If somehow stored as array, join it
@@ -101,7 +109,7 @@ const ContestTaking = () => {
           } else if (typeof answer === 'string') {
             acc[questionId] = answer.trim();
           } else {
-            // Fallback to empty string
+            // Fallback to empty string for unanswered Long Answer questions
             acc[questionId] = '';
           }
         } else {
@@ -111,6 +119,7 @@ const ContestTaking = () => {
           } else if (typeof answer === 'string' && answer.trim().length > 0) {
             acc[questionId] = [answer.trim()];
           } else {
+            // Fallback to empty array for unanswered MCQ questions
             acc[questionId] = [];
           }
         }
@@ -118,13 +127,17 @@ const ContestTaking = () => {
       }, {} as Record<string, string[] | string>);
       
       // Debug logging to help diagnose submission issues
-      console.log('🔍 Formatted answers for submission:', formattedAnswers);
+      console.log('🔍 Auto-submit: Formatted answers for submission:', formattedAnswers);
+      console.log(`📊 Processing ${contest.problems.length} total questions:`);
       Object.entries(formattedAnswers).forEach(([questionId, answer]) => {
         const problem = contest.problems.find(p => p.id === questionId);
+        const originalAnswer = answers[questionId];
         console.log(`  Question ${questionId} (${problem?.question_type}):`, {
+          originalAnswer: originalAnswer,
+          formattedAnswer: answer,
           type: typeof answer,
           isArray: Array.isArray(answer),
-          value: answer
+          isEmpty: (typeof answer === 'string' && answer === '') || (Array.isArray(answer) && answer.length === 0)
         });
       });
 
@@ -150,7 +163,7 @@ const ContestTaking = () => {
     onTimeExpired: handleAutoSubmit,
     onStatusChange: (status) => {
       if (status === 'ended' && !hasSubmitted && !submitting) {
-        handleAutoSubmit();
+        handleAutoSubmit('time_expired');
       }
     },
   });
@@ -187,13 +200,13 @@ const ContestTaking = () => {
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = 'You have an active contest in progress. If you leave now, your answers will be automatically submitted. Are you sure you want to continue?';
+      e.returnValue = 'You have an active contest in progress. If you leave now, your current answers will be automatically submitted and you cannot return to continue. Are you sure you want to leave?';
       return e.returnValue;
     };
 
     const handlePopState = (e: PopStateEvent) => {
       const shouldLeave = window.confirm(
-        'You have an active contest in progress. If you leave now, your answers will be automatically submitted. Are you sure you want to continue?'
+        'You have an active contest in progress. If you leave now, your current answers will be automatically submitted and you cannot return to continue. Are you sure you want to leave?'
       );
       
       if (!shouldLeave) {
@@ -201,7 +214,7 @@ const ContestTaking = () => {
         window.history.pushState(null, '', window.location.href);
       } else {
         // Auto-submit the contest before allowing navigation
-        handleAutoSubmit().then(() => {
+        handleAutoSubmit('user_left').then(() => {
           // Allow the navigation after submission
           setContestInProgress(false);
         }).catch(() => {
@@ -248,12 +261,12 @@ const ContestTaking = () => {
         e.stopImmediatePropagation();
         
         const shouldLeave = window.confirm(
-          'You have an active contest in progress. If you leave now, your answers will be automatically submitted. Are you sure you want to continue?'
+          'You have an active contest in progress. If you leave now, your current answers will be automatically submitted and you cannot return to continue. Are you sure you want to leave?'
         );
         
         if (shouldLeave) {
           // Auto-submit the contest before allowing navigation
-          handleAutoSubmit().then(() => {
+          handleAutoSubmit('user_left').then(() => {
             // Navigate after submission is complete
             setTimeout(() => {
               (navElement as HTMLElement).click();
@@ -339,6 +352,19 @@ const ContestTaking = () => {
         });
       }
       
+      // Initialize answers for all questions with proper default values
+      const initialAnswers: Record<string, string[] | string> = {};
+      contestData.problems.forEach(problem => {
+        if (problem.question_type === 'long_answer') {
+          // Initialize Long Answer questions with empty strings
+          initialAnswers[problem.id] = '';
+        } else {
+          // Initialize MCQ questions with empty arrays
+          initialAnswers[problem.id] = [];
+        }
+      });
+      setAnswers(initialAnswers);
+      
       // Activate contest security
       setContestInProgress(true);
       
@@ -367,7 +393,7 @@ const ContestTaking = () => {
       const timer = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
-            handleAutoSubmit();
+            handleAutoSubmit('time_expired');
             return 0;
           }
           return prev - 1;
@@ -458,11 +484,12 @@ const ContestTaking = () => {
       const timeTaken = Math.floor((totalContestTime - (timeRemaining * 1000)) / 1000);
 
       // Convert answers to the format expected by the API
-      const formattedAnswers = Object.keys(answers).reduce((acc, questionId) => {
-        const answer = answers[questionId];
-        const problem = contest.problems.find(p => p.id === questionId);
+      // IMPORTANT: Process ALL contest problems, not just answered ones
+      const formattedAnswers = contest.problems.reduce((acc, problem) => {
+        const questionId = problem.id;
+        const answer = answers[questionId]; // This might be undefined for unanswered questions
         
-        if (problem?.question_type === 'long_answer') {
+        if (problem.question_type === 'long_answer') {
           // Long Answer questions MUST be strings
           if (Array.isArray(answer)) {
             // If somehow stored as array, join it
@@ -470,7 +497,7 @@ const ContestTaking = () => {
           } else if (typeof answer === 'string') {
             acc[questionId] = answer.trim();
           } else {
-            // Fallback to empty string
+            // Fallback to empty string for unanswered Long Answer questions
             acc[questionId] = '';
           }
         } else {
@@ -480,6 +507,7 @@ const ContestTaking = () => {
           } else if (typeof answer === 'string' && answer.trim().length > 0) {
             acc[questionId] = [answer.trim()];
           } else {
+            // Fallback to empty array for unanswered MCQ questions
             acc[questionId] = [];
           }
         }
@@ -487,13 +515,17 @@ const ContestTaking = () => {
       }, {} as Record<string, string[] | string>);
 
       // Debug logging to help diagnose submission issues
-      console.log('🔍 Formatted answers for submission:', formattedAnswers);
+      console.log('🔍 Manual submit: Formatted answers for submission:', formattedAnswers);
+      console.log(`📊 Processing ${contest.problems.length} total questions:`);
       Object.entries(formattedAnswers).forEach(([questionId, answer]) => {
         const problem = contest.problems.find(p => p.id === questionId);
+        const originalAnswer = answers[questionId];
         console.log(`  Question ${questionId} (${problem?.question_type}):`, {
+          originalAnswer: originalAnswer,
+          formattedAnswer: answer,
           type: typeof answer,
           isArray: Array.isArray(answer),
-          value: answer
+          isEmpty: (typeof answer === 'string' && answer === '') || (Array.isArray(answer) && answer.length === 0)
         });
       });
 
