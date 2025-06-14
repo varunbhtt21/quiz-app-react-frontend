@@ -1005,8 +1005,9 @@ const UserList = () => {
                 <div className="bg-blue-50 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-800 mb-2">Next Steps:</h4>
                   <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• Pre-registered students will use OTP authentication for their first login</li>
-                    <li>• Students must complete their profile (name + email) on first login</li>
+                    <li>• Pre-registered students will use OTPLESS authentication for their first login</li>
+                    <li>• Students must complete their profile (name + date of birth) on first login</li>
+                    <li>• Email will be pre-filled and readonly for bulk-imported students</li>
                     <li>• Successfully imported users can now be enrolled in courses</li>
                     <li>• Review and fix any errors in your CSV file before re-importing</li>
                   </ul>
@@ -1055,8 +1056,8 @@ const UserList = () => {
                       <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                         <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
                         <div>
-                          <p className="font-medium text-green-900">Replace sample data with real student email addresses</p>
-                          <p className="text-sm text-green-700">Only email addresses are needed - students will use OTP authentication</p>
+                          <p className="font-medium text-green-900">Replace sample data with real student information</p>
+                          <p className="text-sm text-green-700">Both email addresses and mobile numbers are required for enhanced authentication</p>
                         </div>
                       </div>
                       
@@ -1078,9 +1079,10 @@ const UserList = () => {
                     </h4>
                     <ul className="text-sm text-yellow-700 space-y-1">
                       <li>• <strong>Email:</strong> Must be valid email addresses (contain @ and .)</li>
+                      <li>• <strong>Mobile:</strong> Must be valid mobile numbers (minimum 10 digits, +91 prefix added automatically)</li>
                       <li>• <strong>Format:</strong> Save as .csv file format</li>
-                      <li>• <strong>Headers:</strong> Do not modify column name (email)</li>
-                      <li>• <strong>Authentication:</strong> Students will use OTP login (no passwords needed)</li>
+                      <li>• <strong>Headers:</strong> Do not modify column names (email, mobile)</li>
+                      <li>• <strong>Authentication:</strong> Students will use OTPLESS login (no passwords needed)</li>
                     </ul>
                   </div>
 

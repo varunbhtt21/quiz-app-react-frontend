@@ -5,14 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { User, Mail, Check, AlertCircle, Link } from 'lucide-react';
+import { User, Mail, Check, AlertCircle, Link, Calendar } from 'lucide-react';
 import { otplessService } from '@/services/otpless';
 import { useNavigate } from 'react-router-dom';
 
 const ProfileCompletion: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isEmailReadonly, setIsEmailReadonly] = useState(false);
   const [emailStatus, setEmailStatus] = useState<{
     is_pre_registered: boolean;
     status: 'invalid' | 'available' | 'pending' | 'taken';
@@ -23,18 +25,36 @@ const ProfileCompletion: React.FC = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Debug logging
+  // Initialize component based on user scenario
   useEffect(() => {
     console.log('ProfileCompletion component mounted');
     console.log('User data:', user);
     console.log('User auth_provider:', user?.auth_provider);
     console.log('User profile_completed:', user?.profile_completed);
+    console.log('User registration_status:', user?.registration_status);
+    
+    // Scenario 1: Bulk-imported user (PENDING status with pre-filled email)
+    if (user?.registration_status === 'PENDING' && user?.email) {
+      console.log('🔍 Detected Scenario 1: Bulk-imported user');
+      setEmail(user.email);
+      setIsEmailReadonly(true);
+    }
+    // Scenario 2: Direct OTPLESS user (ACTIVE status, no email initially)
+    else if (user?.registration_status === 'ACTIVE' && !user?.email) {
+      console.log('🔍 Detected Scenario 2: Direct OTPLESS user');
+      setIsEmailReadonly(false);
+    }
+    // Fallback: Use existing email if available
+    else if (user?.email) {
+      setEmail(user.email);
+      setIsEmailReadonly(true);
+    }
   }, [user]);
 
-  // Check email status when email changes
+  // Check email status when email changes (only for non-readonly emails)
   useEffect(() => {
     const checkEmail = async () => {
-      if (!email || !email.includes('@') || email.length < 5) {
+      if (isEmailReadonly || !email || !email.includes('@') || email.length < 5) {
         setEmailStatus(null);
         return;
       }
@@ -53,15 +73,15 @@ const ProfileCompletion: React.FC = () => {
 
     const timeoutId = setTimeout(checkEmail, 500); // Debounce
     return () => clearTimeout(timeoutId);
-  }, [email]);
+  }, [email, isEmailReadonly]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name.trim() || !email.trim()) {
+    if (!name.trim() || !email.trim() || !dateOfBirth.trim()) {
       toast({
         title: "⚠️ Missing Information",
-        description: "Please fill in both your name and email.",
+        description: "Please fill in your name, email, and date of birth.",
         variant: "destructive",
       });
       return;
@@ -93,12 +113,14 @@ const ProfileCompletion: React.FC = () => {
       const result = await otplessService.completeProfile({
         name: name.trim(),
         email: email.trim(),
+        date_of_birth: dateOfBirth,
       });
 
       // Update local user data
       updateUserProfile({
         name: name.trim(),
         email: email.trim(),
+        date_of_birth: dateOfBirth,
         profile_completed: true,
       });
 
@@ -142,7 +164,10 @@ const ProfileCompletion: React.FC = () => {
             Complete Your Profile
           </CardTitle>
           <CardDescription className="text-gray-600">
-            Please provide your name and email to finish setting up your account.
+            {isEmailReadonly 
+              ? "Please provide your name and date of birth to complete your profile."
+              : "Please provide your name, email, and date of birth to finish setting up your account."
+            }
           </CardDescription>
         </CardHeader>
 
@@ -182,7 +207,7 @@ const ProfileCompletion: React.FC = () => {
             {/* Email input */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium">
-                Email Address
+                Email Address {isEmailReadonly && <span className="text-xs text-blue-600">(Pre-filled)</span>}
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -193,14 +218,16 @@ const ProfileCompletion: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={`pl-10 ${
+                    isEmailReadonly ? 'bg-gray-50 border-gray-300 text-gray-700' :
                     emailStatus?.status === 'pending' ? 'border-blue-300 bg-blue-50' :
                     emailStatus?.status === 'taken' ? 'border-red-300 bg-red-50' :
                     emailStatus?.status === 'available' ? 'border-green-300 bg-green-50' : ''
                   }`}
-                  disabled={isLoading}
+                  disabled={isLoading || isEmailReadonly}
+                  readOnly={isEmailReadonly}
                   required
                 />
-                {isCheckingEmail && (
+                {!isEmailReadonly && isCheckingEmail && (
                   <div className="absolute right-3 top-3">
                     <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
                   </div>
@@ -208,7 +235,7 @@ const ProfileCompletion: React.FC = () => {
               </div>
               
               {/* Email status message */}
-              {emailStatus && (
+              {!isEmailReadonly && emailStatus && (
                 <div className={`flex items-center space-x-2 text-sm p-2 rounded-lg ${
                   emailStatus.status === 'pending' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
                   emailStatus.status === 'taken' ? 'bg-red-50 text-red-700 border border-red-200' :
@@ -225,12 +252,43 @@ const ProfileCompletion: React.FC = () => {
                   </span>
                 </div>
               )}
+              
+              {/* Readonly email info */}
+              {isEmailReadonly && (
+                <div className="flex items-center space-x-2 text-sm p-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+                  <Check className="h-4 w-4" />
+                  <span>This email was pre-registered for you by your administrator</span>
+                </div>
+              )}
+            </div>
+
+            {/* Date of Birth input */}
+            <div className="space-y-2">
+              <Label htmlFor="dateOfBirth" className="text-sm font-medium">
+                Date of Birth
+              </Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="dateOfBirth"
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  className="pl-10"
+                  disabled={isLoading}
+                  max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                  required
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                This helps us provide age-appropriate content and features
+              </p>
             </div>
 
             {/* Submit button */}
             <Button
               type="submit"
-              disabled={isLoading || !name.trim() || !email.trim() || emailStatus?.status === 'taken'}
+              disabled={isLoading || !name.trim() || !email.trim() || !dateOfBirth.trim() || (!isEmailReadonly && emailStatus?.status === 'taken')}
               className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (

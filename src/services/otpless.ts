@@ -28,6 +28,7 @@ export interface TokenVerificationResponse {
 export interface ProfileCompletionData {
   name: string;
   email: string;
+  date_of_birth: string; // ISO date string (YYYY-MM-DD)
 }
 
 class OTPLESSService {

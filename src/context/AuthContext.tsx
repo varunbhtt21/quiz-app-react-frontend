@@ -6,11 +6,13 @@ interface User {
   email?: string;
   mobile?: string;
   name?: string;
+  date_of_birth?: string;
   role: 'admin' | 'student';
   is_active: boolean;
   course_ids?: string[];
   profile_completed?: boolean;
   auth_provider?: 'traditional' | 'otpless';
+  registration_status?: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
 }
 
 interface LoginResponse {
@@ -107,10 +109,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         mobile: userData.mobile,
         name: userData.name,
         email: userData.email,
+        date_of_birth: userData.date_of_birth,
         role: userData.role || 'student',
         is_active: true,
         profile_completed: userData.profile_completed || false,
-        auth_provider: 'otpless'
+        auth_provider: 'otpless',
+        registration_status: userData.registration_status || 'ACTIVE'
       };
       
       // Update localStorage first
@@ -157,7 +161,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isAuthenticated: !!user && !!token,
     isAdmin: user?.role === 'admin',
     isStudent: user?.role === 'student',
-    needsProfileCompletion: !!user && !user.profile_completed, // Check for authenticated user with incomplete profile
+    needsProfileCompletion: !!user && (!user.profile_completed || !user.name || !user.email), // Stricter check: require name, email, and profile_completed flag (date_of_birth checked on backend)
     login,
     loginWithOTPLESS,
     updateUserProfile,
