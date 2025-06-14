@@ -758,9 +758,9 @@ const MCQList = () => {
                               <Badge 
                                 className={`${
                                   correctOptionsCount > 1 
-                                    ? 'bg-purple-100 text-purple-800 border-purple-200' 
-                                    : 'bg-blue-100 text-blue-800 border-blue-200'
-                                } border font-medium`}
+                                    ? 'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200 hover:border-purple-300' 
+                                    : 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 hover:border-blue-300'
+                                } border font-medium transition-colors cursor-default`}
                               >
                                 {correctOptionsCount > 1 ? 'Multi-Choice' : 'Single Choice'}
                               </Badge>
@@ -787,6 +787,7 @@ const MCQList = () => {
                                   variant="ghost"
                                   className="h-auto p-0 hover:bg-transparent"
                                   onClick={() => handleQuickTagAssignment(mcq)}
+                                  title="Click to assign tags"
                                 >
                                   <Badge 
                                     className="bg-red-100 text-red-800 border-red-200 border font-medium hover:bg-red-200 cursor-pointer transition-colors"
@@ -796,12 +797,19 @@ const MCQList = () => {
                                   </Badge>
                                 </Button>
                               ) : (
-                                <Badge 
-                                  className="bg-green-100 text-green-800 border-green-200 border font-medium"
+                                <Button
+                                  variant="ghost"
+                                  className="h-auto p-0 hover:bg-transparent"
+                                  onClick={() => handleQuickTagAssignment(mcq)}
+                                  title="Click to manage tags"
                                 >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Active
-                                </Badge>
+                                  <Badge 
+                                    className="bg-green-100 text-green-800 border-green-200 border font-medium hover:bg-green-200 hover:border-green-300 transition-colors cursor-pointer"
+                                  >
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Active
+                                  </Badge>
+                                </Button>
                               )}
                               {hasExplanation && (
                                 <div className="flex items-center text-xs text-gray-500">
@@ -812,18 +820,32 @@ const MCQList = () => {
                               {mcq.tags && mcq.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-1">
                                   {mcq.tags.slice(0, 2).map((tag) => (
-                                    <Badge
+                                    <Button
                                       key={tag.id}
-                                      style={{ backgroundColor: tag.color, color: 'white' }}
-                                      className="text-xs text-white"
+                                      variant="ghost"
+                                      className="h-auto p-0 hover:bg-transparent"
+                                      onClick={() => handleQuickTagAssignment(mcq)}
+                                      title="Click to manage tags"
                                     >
-                                      {tag.name}
-                                    </Badge>
+                                      <Badge
+                                        style={{ backgroundColor: tag.color, color: 'white' }}
+                                        className="text-xs text-white hover:opacity-80 transition-opacity cursor-pointer"
+                                      >
+                                        {tag.name}
+                                      </Badge>
+                                    </Button>
                                   ))}
                                   {mcq.tags.length > 2 && (
-                                    <Badge variant="outline" className="text-xs">
-                                      +{mcq.tags.length - 2}
-                                    </Badge>
+                                    <Button
+                                      variant="ghost"
+                                      className="h-auto p-0 hover:bg-transparent"
+                                      onClick={() => handleQuickTagAssignment(mcq)}
+                                      title="Click to manage all tags"
+                                    >
+                                      <Badge variant="outline" className="text-xs hover:bg-gray-100 transition-colors cursor-pointer">
+                                        +{mcq.tags.length - 2}
+                                      </Badge>
+                                    </Button>
                                   )}
                                 </div>
                               )}
@@ -910,7 +932,7 @@ const MCQList = () => {
                       {importResult.created_problems.map((problem, index) => (
                         <div key={problem.id} className="flex items-center justify-between py-2 border-b border-green-200 last:border-b-0">
                           <span className="text-green-800 truncate">{problem.title}</span>
-                          <Badge className="bg-green-100 text-green-800">
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-default">
                             {problem.correct_options.join(', ')}
                           </Badge>
                         </div>

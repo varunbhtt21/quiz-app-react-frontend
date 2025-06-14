@@ -645,9 +645,9 @@ const UserList = () => {
                           <Badge 
                             className={`${
                               user.is_active 
-                                ? 'bg-green-100 text-green-800 border-green-200' 
-                                : 'bg-red-100 text-red-800 border-red-200'
-                            } border font-medium text-xs`}
+                                ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 hover:border-green-300' 
+                                : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200 hover:border-red-300'
+                            } border font-medium text-xs transition-colors cursor-default`}
                           >
                             {user.is_active ? (
                               <>
@@ -693,11 +693,11 @@ const UserList = () => {
                           <Badge 
                             className={`${
                               user.registration_status === 'PENDING'
-                                ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                ? 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200 hover:border-orange-300'
                                 : user.registration_status === 'ACTIVE'
-                                ? 'bg-green-100 text-green-800 border-green-200'
-                                : 'bg-red-100 text-red-800 border-red-200'
-                            } border font-medium text-xs`}
+                                ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 hover:border-green-300'
+                                : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200 hover:border-red-300'
+                            } border font-medium text-xs transition-colors cursor-default`}
                           >
                             {user.registration_status === 'PENDING' ? (
                               <>
@@ -797,9 +797,9 @@ const UserList = () => {
                             <Badge 
                               className={`${
                                 user.role === 'admin'
-                                  ? 'bg-red-100 text-red-800 border-red-200' 
-                                  : 'bg-blue-100 text-blue-800 border-blue-200'
-                              } border font-medium`}
+                                  ? 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200 hover:border-red-300' 
+                                  : 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 hover:border-blue-300'
+                              } border font-medium transition-colors cursor-default`}
                             >
                               {user.role === 'admin' ? (
                                 <>
@@ -818,9 +818,9 @@ const UserList = () => {
                             <Badge 
                               className={`${
                                 user.is_active 
-                                  ? 'bg-green-100 text-green-800 border-green-200' 
-                                  : 'bg-red-100 text-red-800 border-red-200'
-                              } border font-medium`}
+                                  ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 hover:border-green-300' 
+                                  : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200 hover:border-red-300'
+                              } border font-medium transition-colors cursor-default`}
                             >
                               {user.is_active ? (
                                 <>
@@ -839,11 +839,11 @@ const UserList = () => {
                             <Badge 
                               className={`${
                                 user.registration_status === 'PENDING'
-                                  ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                  ? 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200 hover:border-orange-300'
                                   : user.registration_status === 'ACTIVE'
-                                  ? 'bg-green-100 text-green-800 border-green-200'
-                                  : 'bg-red-100 text-red-800 border-red-200'
-                              } border font-medium`}
+                                  ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 hover:border-green-300'
+                                  : 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200 hover:border-red-300'
+                              } border font-medium transition-colors cursor-default`}
                             >
                               {user.registration_status === 'PENDING' ? (
                                 <>
@@ -977,7 +977,7 @@ const UserList = () => {
                       {importResult.preregistered_students.map((user, index) => (
                         <div key={user.id} className="flex items-center justify-between py-2 border-b border-green-200 last:border-b-0">
                           <span className="text-green-800">{user.email}</span>
-                          <Badge className="bg-green-100 text-green-800">Created</Badge>
+                          <Badge className="bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-default">Created</Badge>
                         </div>
                       ))}
                     </div>
@@ -1075,14 +1075,15 @@ const UserList = () => {
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <h4 className="font-semibold text-yellow-800 mb-2 flex items-center">
                       <AlertCircle className="h-4 w-4 mr-2" />
-                      Requirements
+                      Requirements (BOTH FIELDS MANDATORY)
                     </h4>
                     <ul className="text-sm text-yellow-700 space-y-1">
-                      <li>• <strong>Email:</strong> Must be valid email addresses (contain @ and .)</li>
-                      <li>• <strong>Mobile:</strong> Must be valid mobile numbers (minimum 10 digits, +91 prefix added automatically)</li>
+                      <li>• <strong>Email:</strong> MANDATORY - Must be valid email addresses (contain @ and .)</li>
+                      <li>• <strong>Mobile:</strong> MANDATORY - Must be valid mobile numbers (minimum 10 digits, +91 prefix added automatically)</li>
                       <li>• <strong>Format:</strong> Save as .csv file format</li>
                       <li>• <strong>Headers:</strong> Do not modify column names (email, mobile)</li>
                       <li>• <strong>Authentication:</strong> Students will use OTPLESS login (no passwords needed)</li>
+                      <li>• <strong>Validation:</strong> Students with missing email OR mobile will be rejected</li>
                     </ul>
                   </div>
 
@@ -1102,10 +1103,22 @@ const UserList = () => {
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                     <h4 className="font-semibold text-gray-800 mb-2">📋 Expected Format</h4>
                     <div className="bg-white p-3 rounded border font-mono text-sm">
-                      <div className="font-bold border-b pb-1 mb-2">email</div>
-                      <div>student1@university.edu</div>
-                      <div>student2@university.edu</div>
-                      <div>student3@university.edu</div>
+                      <div className="font-bold border-b pb-1 mb-2 grid grid-cols-2 gap-4">
+                        <span>email</span>
+                        <span>mobile</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <span>student1@university.edu</span>
+                        <span>+919876543210</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <span>student2@university.edu</span>
+                        <span>+919876543211</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <span>student3@university.edu</span>
+                        <span>+919876543212</span>
+                      </div>
                     </div>
                   </div>
                 </div>

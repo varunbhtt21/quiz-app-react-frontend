@@ -273,12 +273,12 @@ const StudentEmailList: React.FC = () => {
 
   const getRegistrationStatusBadge = (status: string) => {
     const colors = {
-      'PENDING': 'bg-orange-100 text-orange-800',
-      'ACTIVE': 'bg-green-100 text-green-800',
-      'SUSPENDED': 'bg-red-100 text-red-800'
+      'PENDING': 'bg-orange-100 text-orange-800 hover:bg-orange-200 hover:border-orange-300',
+      'ACTIVE': 'bg-green-100 text-green-800 hover:bg-green-200 hover:border-green-300',
+      'SUSPENDED': 'bg-red-100 text-red-800 hover:bg-red-200 hover:border-red-300'
     };
     return (
-      <Badge className={colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800'}>
+      <Badge className={`${colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800 hover:bg-gray-200 hover:border-gray-300'} border transition-colors cursor-default`}>
         {status}
       </Badge>
     );
