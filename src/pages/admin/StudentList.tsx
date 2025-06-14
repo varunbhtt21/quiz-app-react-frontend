@@ -1079,7 +1079,8 @@ const UserList = () => {
                     </h4>
                     <ul className="text-sm text-yellow-700 space-y-1">
                       <li>• <strong>Email:</strong> MANDATORY - Must be valid email addresses (contain @ and .)</li>
-                      <li>• <strong>Mobile:</strong> MANDATORY - Must be valid mobile numbers (minimum 10 digits, +91 prefix added automatically)</li>
+                      <li>• <strong>Mobile:</strong> MANDATORY - Accepts multiple formats: 7906986914, 917906986914, +917906986914, +91-7906-986-914</li>
+                      <li>• <strong>Storage:</strong> All mobiles normalized to 10-digit format (7906986914) in database</li>
                       <li>• <strong>Format:</strong> Save as .csv file format</li>
                       <li>• <strong>Headers:</strong> Do not modify column names (email, mobile)</li>
                       <li>• <strong>Authentication:</strong> Students will use OTPLESS login (no passwords needed)</li>
@@ -1109,7 +1110,7 @@ const UserList = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <span>student1@university.edu</span>
-                        <span>+919876543210</span>
+                        <span>9876543210</span>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <span>student2@university.edu</span>
@@ -1117,7 +1118,7 @@ const UserList = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <span>student3@university.edu</span>
-                        <span>+919876543212</span>
+                        <span>919876543212</span>
                       </div>
                     </div>
                   </div>

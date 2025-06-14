@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { User, Mail, Check, AlertCircle, Link, Calendar } from 'lucide-react';
+import { User, Mail, Check, AlertCircle, Link, Calendar, LogOut } from 'lucide-react';
 import { otplessService } from '@/services/otpless';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,7 +21,8 @@ const ProfileCompletion: React.FC = () => {
     message?: string;
   } | null>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const { user, updateUserProfile } = useAuth();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const { user, updateUserProfile, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -136,11 +137,31 @@ const ProfileCompletion: React.FC = () => {
 
     } catch (error: any) {
       console.error('Profile completion failed:', error);
+      
+      // Show the error message to user
       toast({
         title: "🚫 Profile Completion Failed",
         description: error.message || "Please try again.",
         variant: "destructive",
       });
+
+      // Show a countdown toast for logout
+      toast({
+        title: "🔄 Redirecting to Login",
+        description: "You will be redirected to login page in 2 seconds...",
+        variant: "default",
+      });
+
+      // Set redirecting state to show visual feedback
+      setIsRedirecting(true);
+
+      // Clear authentication and redirect after 2 seconds
+      setTimeout(() => {
+        console.log('🔄 Clearing authentication and redirecting to login...');
+        logout(); // This clears localStorage and auth state
+        navigate('/login', { replace: true });
+      }, 2000);
+      
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +178,28 @@ const ProfileCompletion: React.FC = () => {
   console.log('Rendering ProfileCompletion component');
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4 relative">
+      {/* Redirecting Overlay */}
+      {isRedirecting && (
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <Card className="w-full max-w-sm bg-white shadow-2xl">
+            <CardContent className="p-6 text-center">
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-full">
+                  <LogOut className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Redirecting to Login</h3>
+              <p className="text-gray-600 mb-4">Please wait while we redirect you...</p>
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-gray-500">Clearing session...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      
       <Card className="w-full max-w-md backdrop-blur-lg bg-white/95 shadow-2xl border-0 ring-1 ring-blue-100">
         <CardHeader className="text-center pb-6 bg-gradient-to-br from-blue-50 to-purple-50 border-b border-blue-100">
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
@@ -288,10 +330,15 @@ const ProfileCompletion: React.FC = () => {
             {/* Submit button */}
             <Button
               type="submit"
-              disabled={isLoading || !name.trim() || !email.trim() || !dateOfBirth.trim() || (!isEmailReadonly && emailStatus?.status === 'taken')}
+              disabled={isLoading || isRedirecting || !name.trim() || !email.trim() || !dateOfBirth.trim() || (!isEmailReadonly && emailStatus?.status === 'taken')}
               className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {isRedirecting ? (
+                <div className="flex items-center space-x-2">
+                  <LogOut className="h-4 w-4" />
+                  <span>Redirecting to Login...</span>
+                </div>
+              ) : isLoading ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   <span>
