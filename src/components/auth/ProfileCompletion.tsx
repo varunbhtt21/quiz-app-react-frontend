@@ -17,11 +17,12 @@ const ProfileCompletion: React.FC = () => {
   const [isEmailReadonly, setIsEmailReadonly] = useState(false);
   const [emailStatus, setEmailStatus] = useState<{
     is_pre_registered: boolean;
-    status: 'invalid' | 'available' | 'pending' | 'taken';
+    status: 'invalid' | 'available' | 'pending' | 'taken' | 'pending_match' | 'pending_mismatch' | 'taken_different_mobile' | 'taken_same_mobile' | 'pending_error';
     message?: string;
   } | null>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [redirectError, setRedirectError] = useState<string>('');
   const { user, updateUserProfile, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -63,6 +64,7 @@ const ProfileCompletion: React.FC = () => {
       setIsCheckingEmail(true);
       try {
         const status = await otplessService.checkEmailStatus(email);
+        console.log('📧 Email status response:', status);
         setEmailStatus(status);
       } catch (error) {
         console.error('Error checking email status:', error);
@@ -138,29 +140,33 @@ const ProfileCompletion: React.FC = () => {
     } catch (error: any) {
       console.error('Profile completion failed:', error);
       
+      // Store the error message for display in redirect overlay
+      const errorMessage = error.message || "Please try again.";
+      setRedirectError(errorMessage);
+      
       // Show the error message to user
       toast({
         title: "🚫 Profile Completion Failed",
-        description: error.message || "Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
 
       // Show a countdown toast for logout
       toast({
         title: "🔄 Redirecting to Login",
-        description: "You will be redirected to login page in 2 seconds...",
+        description: "You will be redirected to login page in 5 seconds...",
         variant: "default",
       });
 
       // Set redirecting state to show visual feedback
       setIsRedirecting(true);
 
-      // Clear authentication and redirect after 2 seconds
+      // Clear authentication and redirect after 5 seconds
       setTimeout(() => {
         console.log('🔄 Clearing authentication and redirecting to login...');
         logout(); // This clears localStorage and auth state
         navigate('/login', { replace: true });
-      }, 2000);
+      }, 5000);
       
     } finally {
       setIsLoading(false);
@@ -182,13 +188,22 @@ const ProfileCompletion: React.FC = () => {
       {/* Redirecting Overlay */}
       {isRedirecting && (
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <Card className="w-full max-w-sm bg-white shadow-2xl">
+          <Card className="w-full max-w-md bg-white shadow-2xl">
             <CardContent className="p-6 text-center">
               <div className="flex items-center justify-center mb-4">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-3 rounded-full">
-                  <LogOut className="h-6 w-6 text-white" />
+                <div className="bg-gradient-to-r from-red-500 to-orange-600 p-3 rounded-full">
+                  <AlertCircle className="h-6 w-6 text-white" />
                 </div>
               </div>
+              
+              {/* Error Message */}
+              {redirectError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <h4 className="text-sm font-semibold text-red-800 mb-1">Profile Completion Failed</h4>
+                  <p className="text-sm text-red-700">{redirectError}</p>
+                </div>
+              )}
+              
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Redirecting to Login</h3>
               <p className="text-gray-600 mb-4">Please wait while we redirect you...</p>
               <div className="flex items-center justify-center space-x-2">
@@ -261,8 +276,9 @@ const ProfileCompletion: React.FC = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   className={`pl-10 ${
                     isEmailReadonly ? 'bg-gray-50 border-gray-300 text-gray-700' :
-                    emailStatus?.status === 'pending' ? 'border-blue-300 bg-blue-50' :
-                    emailStatus?.status === 'taken' ? 'border-red-300 bg-red-50' :
+                    emailStatus?.status === 'pending' || emailStatus?.status === 'pending_match' ? 'border-blue-300 bg-blue-50' :
+                    emailStatus?.status === 'pending_mismatch' ? 'border-orange-300 bg-orange-50' :
+                    emailStatus?.status === 'taken' || emailStatus?.status === 'taken_different_mobile' || emailStatus?.status === 'taken_same_mobile' ? 'border-red-300 bg-red-50' :
                     emailStatus?.status === 'available' ? 'border-green-300 bg-green-50' : ''
                   }`}
                   disabled={isLoading || isEmailReadonly}
@@ -279,17 +295,20 @@ const ProfileCompletion: React.FC = () => {
               {/* Email status message */}
               {!isEmailReadonly && emailStatus && (
                 <div className={`flex items-center space-x-2 text-sm p-2 rounded-lg ${
-                  emailStatus.status === 'pending' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                  emailStatus.status === 'taken' ? 'bg-red-50 text-red-700 border border-red-200' :
-                  emailStatus.status === 'available' ? 'bg-green-50 text-green-700 border border-green-200' : ''
+                  emailStatus.status === 'pending_match' || emailStatus.status === 'pending' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                  emailStatus.status === 'pending_mismatch' ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+                  emailStatus.status === 'taken' || emailStatus.status === 'taken_different_mobile' || emailStatus.status === 'taken_same_mobile' ? 'bg-red-50 text-red-700 border border-red-200' :
+                  emailStatus.status === 'available' ? 'bg-green-50 text-green-700 border border-green-200' : 
+                  'bg-gray-50 text-gray-700 border border-gray-200'
                 }`}>
-                  {emailStatus.status === 'pending' && <Link className="h-4 w-4" />}
-                  {emailStatus.status === 'taken' && <AlertCircle className="h-4 w-4" />}
+                  {(emailStatus.status === 'pending_match' || emailStatus.status === 'pending') && <Link className="h-4 w-4" />}
+                  {emailStatus.status === 'pending_mismatch' && <AlertCircle className="h-4 w-4" />}
+                  {(emailStatus.status === 'taken' || emailStatus.status === 'taken_different_mobile' || emailStatus.status === 'taken_same_mobile') && <AlertCircle className="h-4 w-4" />}
                   {emailStatus.status === 'available' && <Check className="h-4 w-4" />}
-                  <span>
+                  <span className="font-medium">
                     {emailStatus.message || 
                       (emailStatus.status === 'available' ? 'Email is available' : 
-                       emailStatus.status === 'pending' ? 'This email was pre-registered for you' :
+                       emailStatus.status === 'pending_match' || emailStatus.status === 'pending' ? 'This email was pre-registered for you' :
                        'Email is already taken')}
                   </span>
                 </div>
@@ -330,7 +349,7 @@ const ProfileCompletion: React.FC = () => {
             {/* Submit button */}
             <Button
               type="submit"
-              disabled={isLoading || isRedirecting || !name.trim() || !email.trim() || !dateOfBirth.trim() || (!isEmailReadonly && emailStatus?.status === 'taken')}
+              disabled={isLoading || isRedirecting || !name.trim() || !email.trim() || !dateOfBirth.trim() || (!isEmailReadonly && (emailStatus?.status === 'taken' || emailStatus?.status === 'taken_different_mobile' || emailStatus?.status === 'taken_same_mobile'))}
               className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isRedirecting ? (
@@ -342,14 +361,14 @@ const ProfileCompletion: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   <span>
-                    {emailStatus?.status === 'pending' ? 'Linking Account...' : 'Completing Profile...'}
+                    {emailStatus?.status === 'pending' || emailStatus?.status === 'pending_match' ? 'Linking Account...' : 'Completing Profile...'}
                   </span>
                 </div>
               ) : (
-                <div className="flex items-center space-x-2">
-                  {emailStatus?.status === 'pending' ? <Link className="h-5 w-5" /> : <Check className="h-5 w-5" />}
+                                  <div className="flex items-center space-x-2">
+                  {emailStatus?.status === 'pending' || emailStatus?.status === 'pending_match' ? <Link className="h-5 w-5" /> : <Check className="h-5 w-5" />}
                   <span>
-                    {emailStatus?.status === 'pending' ? 'Link & Complete Profile' : 'Complete Profile'}
+                    {emailStatus?.status === 'pending' || emailStatus?.status === 'pending_match' ? 'Link & Complete Profile' : 'Complete Profile'}
                   </span>
                 </div>
               )}
