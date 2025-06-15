@@ -42,8 +42,15 @@ interface ImportResult {
   total_rows: number;
   successful: number;
   failed: number;
+  duplicates: number;
   errors: string[];
-  created_problems: { id: string; title: string; correct_options: string[] }[];
+  created_problems: { 
+    id: string; 
+    title: string; 
+    correct_options: string[];
+    needs_tags?: boolean;
+    tags?: number;
+  }[];
 }
 
 const MCQList = () => {
@@ -881,93 +888,289 @@ const MCQList = () => {
           </CardContent>
         </Card>
 
-        {/* Import Results Modal */}
+        {/* Enhanced Import Results Modal */}
         {showImportResult && importResult && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
-              <CardHeader className="border-b">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl">
+              <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-green-50 sticky top-0 z-10">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center space-x-2">
+                  <CardTitle className="flex items-center space-x-3">
                     {importResult.successful > 0 ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                      </div>
                     ) : (
-                      <AlertCircle className="h-5 w-5 text-red-600" />
+                      <div className="p-2 bg-red-100 rounded-full">
+                        <AlertCircle className="h-6 w-6 text-red-600" />
+                      </div>
                     )}
-                    <span>Import Results</span>
+                    <div>
+                      <span className="text-xl font-bold">Import Results</span>
+                      <p className="text-sm text-gray-600 font-normal mt-1">
+                        {importResult.successful > 0 
+                          ? `Successfully processed ${importResult.successful} out of ${importResult.total_rows} questions`
+                          : `Import failed - ${importResult.failed} errors found`
+                        }
+                      </p>
+                    </div>
                   </CardTitle>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowImportResult(false)}
+                    className="hover:bg-gray-100"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-5 w-5" />
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-6 overflow-y-auto">
-                {/* Summary */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{importResult.total_rows}</div>
-                    <div className="text-sm text-blue-800">Total Rows</div>
-                  </div>
-                  <div className="text-center p-4 bg-green-50 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{importResult.successful}</div>
-                    <div className="text-sm text-green-800">Successful</div>
-                  </div>
-                  <div className="text-center p-4 bg-red-50 rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">{importResult.failed}</div>
-                    <div className="text-sm text-red-800">Failed</div>
+              
+              <CardContent className="p-0 overflow-y-auto max-h-[calc(90vh-120px)]">
+                {/* Summary Statistics */}
+                <div className="p-6 border-b bg-gray-50">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="text-center p-4 bg-white rounded-lg shadow-sm border">
+                      <div className="text-3xl font-bold text-blue-600 mb-1">{importResult.total_rows}</div>
+                      <div className="text-sm text-blue-800 font-medium">Total Rows Processed</div>
+                      <div className="text-xs text-gray-500 mt-1">From CSV file</div>
+                    </div>
+                    <div className="text-center p-4 bg-white rounded-lg shadow-sm border">
+                      <div className="text-3xl font-bold text-green-600 mb-1">{importResult.successful}</div>
+                      <div className="text-sm text-green-800 font-medium">Successfully Imported</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {importResult.total_rows > 0 ? `${Math.round((importResult.successful / importResult.total_rows) * 100)}% success rate` : '0% success rate'}
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-white rounded-lg shadow-sm border">
+                      <div className="text-3xl font-bold text-amber-600 mb-1">{importResult.duplicates || 0}</div>
+                      <div className="text-sm text-amber-800 font-medium">Duplicates Skipped</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {importResult.duplicates > 0 ? 'Already exist in database' : 'No duplicates found'}
+                      </div>
+                    </div>
+                    <div className="text-center p-4 bg-white rounded-lg shadow-sm border">
+                      <div className="text-3xl font-bold text-red-600 mb-1">{importResult.failed}</div>
+                      <div className="text-sm text-red-800 font-medium">Failed to Import</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {importResult.failed > 0 ? 'See errors below' : 'No errors'}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Successfully Created Questions */}
                 {importResult.created_problems.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-green-800 mb-3 flex items-center">
-                      <CheckCircle className="h-5 w-5 mr-2" />
-                      Successfully Created Questions ({importResult.created_problems.length})
-                    </h3>
-                    <div className="bg-green-50 rounded-lg p-4 max-h-40 overflow-y-auto">
-                      {importResult.created_problems.map((problem, index) => (
-                        <div key={problem.id} className="flex items-center justify-between py-2 border-b border-green-200 last:border-b-0">
-                          <span className="text-green-800 truncate">{problem.title}</span>
-                          <Badge className="bg-green-100 text-green-800 hover:bg-green-200 transition-colors cursor-default">
-                            {problem.correct_options.join(', ')}
-                          </Badge>
+                  <div className="p-6 border-b">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-green-800 flex items-center">
+                        <div className="p-1 bg-green-100 rounded-full mr-3">
+                          <CheckCircle className="h-5 w-5 text-green-600" />
                         </div>
-                      ))}
+                        Successfully Imported Questions
+                        <Badge className="ml-3 bg-green-100 text-green-800">
+                          {importResult.created_problems.length} questions
+                        </Badge>
+                      </h3>
+                      <div className="text-sm text-gray-500">
+                        All questions need tags before use in contests
+                      </div>
+                    </div>
+                    
+                    <div className="bg-green-50 rounded-lg border border-green-200">
+                      <div className="max-h-64 overflow-y-auto">
+                        <div className="divide-y divide-green-200">
+                          {importResult.created_problems.map((problem, index) => (
+                            <div key={problem.id} className="p-4 hover:bg-green-100 transition-colors">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <Badge variant="outline" className="text-xs bg-white">
+                                      #{index + 1}
+                                    </Badge>
+                                    <span className="text-sm font-medium text-green-900 truncate">
+                                      {problem.title}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-4 text-xs text-green-700">
+                                    <span className="flex items-center">
+                                      <span className="font-medium">Correct Answer(s):</span>
+                                      <Badge className="ml-1 bg-green-200 text-green-800 text-xs">
+                                        {problem.correct_options.join(', ')}
+                                      </Badge>
+                                    </span>
+                                    <span className="flex items-center">
+                                      <AlertCircle className="h-3 w-3 mr-1 text-amber-500" />
+                                      Needs Tags
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 ml-4">
+                                  <Badge 
+                                    variant={problem.correct_options.length > 1 ? "default" : "secondary"}
+                                    className="text-xs"
+                                  >
+                                    {problem.correct_options.length > 1 ? 'Multi-Answer' : 'Single Answer'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Errors */}
+                {/* Errors Section */}
                 {importResult.errors.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-red-800 mb-3 flex items-center">
-                      <AlertCircle className="h-5 w-5 mr-2" />
-                      Errors ({importResult.errors.length})
-                    </h3>
-                    <div className="bg-red-50 rounded-lg p-4 max-h-40 overflow-y-auto">
-                      {importResult.errors.map((error, index) => (
-                        <div key={index} className="py-2 border-b border-red-200 last:border-b-0">
-                          <span className="text-red-800 text-sm">{error}</span>
+                  <div className="p-6 border-b">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-red-800 flex items-center">
+                        <div className="p-1 bg-red-100 rounded-full mr-3">
+                          <AlertCircle className="h-5 w-5 text-red-600" />
                         </div>
-                      ))}
+                        Import Errors
+                        <Badge className="ml-3 bg-red-100 text-red-800">
+                          {importResult.errors.length} errors
+                        </Badge>
+                      </h3>
+                      <div className="text-sm text-gray-500">
+                        Fix these issues and re-import
+                      </div>
+                    </div>
+                    
+                    <div className="bg-red-50 rounded-lg border border-red-200">
+                      <div className="max-h-64 overflow-y-auto">
+                        <div className="divide-y divide-red-200">
+                          {importResult.errors.map((error, index) => (
+                            <div key={index} className="p-4 hover:bg-red-100 transition-colors">
+                              <div className="flex items-start space-x-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <div className="w-6 h-6 bg-red-200 rounded-full flex items-center justify-center">
+                                    <span className="text-xs font-bold text-red-800">
+                                      {index + 1}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-red-800 font-medium break-words">
+                                    {error}
+                                  </p>
+                                  {error.includes('Row') && (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      Check your CSV file for this specific row and fix the issue
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Instructions for next steps */}
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-800 mb-2">Next Steps:</h4>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• Successfully imported questions are now available in your question bank</li>
-                    <li>• <strong>Important:</strong> Questions without tags CANNOT be used in contests</li>
-                    <li>• Use "Need Tags Only" filter to find and assign tags to imported questions</li>
-                    <li>• Review and fix any errors in your CSV file before re-importing</li>
-                    <li>• Questions must have at least one tag assigned before they can be used in contests</li>
-                  </ul>
+                {/* Next Steps and Instructions */}
+                <div className="p-6">
+                  <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+                    <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
+                      <div className="p-1 bg-blue-100 rounded-full mr-2">
+                        <CheckCircle className="h-4 w-4 text-blue-600" />
+                      </div>
+                      Next Steps & Important Information
+                    </h4>
+                    <div className="space-y-3 text-sm text-blue-700">
+                      {importResult.successful > 0 && (
+                        <div className="bg-blue-100 rounded p-3">
+                          <p className="font-medium text-blue-800 mb-2">✅ Successfully Imported Questions:</p>
+                          <ul className="space-y-1 ml-4">
+                            <li>• {importResult.successful} questions are now in your question bank</li>
+                            <li>• All imported questions are marked as "Needs Tags"</li>
+                            <li>• Use the "Need Tags Only" filter to find and tag these questions</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {importResult.duplicates > 0 && (
+                        <div className="bg-amber-100 rounded p-3">
+                          <p className="font-medium text-amber-800 mb-2">🔄 Duplicate Questions Detected:</p>
+                          <ul className="space-y-1 ml-4 text-amber-700">
+                            <li>• {importResult.duplicates} questions were skipped as they already exist</li>
+                            <li>• Duplicates are detected by matching title, description, and all options</li>
+                            <li>• This prevents creating identical questions in your database</li>
+                            <li>• Only unique questions are imported to maintain data integrity</li>
+                          </ul>
+                        </div>
+                      )}
+                      
+                      <div className="bg-blue-100 rounded p-3">
+                        <p className="font-medium text-blue-800 mb-2">⚠️ Important Requirements:</p>
+                        <ul className="space-y-1 ml-4 text-blue-700">
+                          <li>• Questions <strong>MUST have tags</strong> before they can be used in contests</li>
+                          <li>• Untagged questions will not appear in contest question selection</li>
+                          <li>• Assign relevant tags to categorize and organize your questions</li>
+                        </ul>
+                      </div>
+
+                      {importResult.errors.length > 0 && (
+                        <div className="bg-red-100 rounded p-3">
+                          <p className="font-medium text-red-800 mb-2">❌ Fix Errors and Re-import:</p>
+                          <ul className="space-y-1 ml-4 text-red-700">
+                            <li>• Review the error messages above</li>
+                            <li>• Fix issues in your CSV file</li>
+                            <li>• Re-upload the corrected file</li>
+                            <li>• Only failed rows need to be re-imported</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      <div className="bg-green-100 rounded p-3">
+                        <p className="font-medium text-green-800 mb-2">🎯 Quick Actions:</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setShowImportResult(false);
+                              setShowNeedsTags(true);
+                            }}
+                            className="bg-white hover:bg-green-50 border-green-300 text-green-700"
+                          >
+                            View Questions Needing Tags
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => navigate('/admin/tags')}
+                            className="bg-white hover:bg-blue-50 border-blue-300 text-blue-700"
+                          >
+                            Manage Tags
+                          </Button>
+                          {importResult.errors.length > 0 && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={handleDownloadTemplate}
+                              className="bg-white hover:bg-purple-50 border-purple-300 text-purple-700"
+                            >
+                              Download Template
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 bg-gray-50 border-t flex justify-end">
+                  <Button 
+                    onClick={() => setShowImportResult(false)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+                  >
+                    Close
+                  </Button>
                 </div>
               </CardContent>
             </Card>
