@@ -59,13 +59,40 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('access_token');
+      const storedUser = localStorage.getItem('user');
       
-      if (storedToken) {
+      if (storedToken && storedUser) {
         try {
-          // Verify token and get current user
+          // First, use cached user data immediately for fast loading
+          const cachedUserData = JSON.parse(storedUser) as User;
+          setToken(storedToken);
+          setUser(cachedUserData);
+          console.log('🔄 Using cached user data for fast loading');
+          
+          // Then verify token and refresh user data in background
+          try {
+            const freshUserData = await apiService.getCurrentUser() as User;
+            setUser(freshUserData);
+            localStorage.setItem('user', JSON.stringify(freshUserData));
+            console.log('✅ User data refreshed from backend');
+          } catch (apiError) {
+            // Keep using cached data if API call fails
+            console.warn('⚠️ Could not refresh user data from backend, using cached version:', apiError);
+            // Don't log out user immediately - they can still use the app
+          }
+        } catch (parseError) {
+          // Cached data is corrupted, clear everything
+          console.error('❌ Cached user data corrupted, clearing storage:', parseError);
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('user');
+        }
+      } else if (storedToken) {
+        // Token exists but no cached user data - try to get from backend
+        try {
           const userData = await apiService.getCurrentUser() as User;
           setToken(storedToken);
           setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
         } catch (error) {
           // Token is invalid, clear storage
           localStorage.removeItem('access_token');

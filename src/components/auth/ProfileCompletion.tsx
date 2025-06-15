@@ -9,6 +9,7 @@ import { User, Mail, Check, AlertCircle, Link, Calendar, LogOut } from 'lucide-r
 import { otplessService } from '@/services/otpless';
 import { useNavigate } from 'react-router-dom';
 
+
 const ProfileCompletion: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -172,13 +173,6 @@ const ProfileCompletion: React.FC = () => {
       setIsLoading(false);
     }
   };
-
-  // Debug: Check authentication
-  if (!user?.auth_provider || user.auth_provider !== 'otpless') {
-    console.log('User not authenticated properly, redirecting to login');
-    navigate('/login');
-    return null;
-  }
 
   // Add a fallback render with debug info
   console.log('Rendering ProfileCompletion component');
