@@ -396,8 +396,8 @@ const QuestionList = () => {
                   <div className="flex items-center space-x-3 mb-2">
                     <Badge className={`${typeDisplay.color} shadow-sm border-0 font-medium`}>
                       <TypeIcon className="h-3 w-3 mr-1.5" />
-                      {typeDisplay.label}
-                    </Badge>
+                {typeDisplay.label}
+              </Badge>
                     {question.needs_tags && (
                       <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 animate-pulse">
                         <AlertCircle className="h-3 w-3 mr-1" />
@@ -407,12 +407,12 @@ const QuestionList = () => {
                     <div className="flex items-center space-x-1 text-xs text-gray-500">
                       <Clock className="h-3 w-3" />
                       <span>{new Date(question.created_at).toLocaleDateString()}</span>
-                    </div>
+            </div>
                   </div>
 
                   {/* Question Title & Description */}
                   <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-900 transition-colors">
-                    {question.title}
+                {question.title}
                   </h3>
                   <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed mb-4">
                     {question.description}
@@ -647,23 +647,23 @@ const QuestionList = () => {
             
             {/* Question Description */}
             <p className="text-sm text-gray-600 leading-relaxed">
-              {question.description.length > 100 
-                ? `${question.description.substring(0, 100)}...` 
-                : question.description}
-            </p>
+                {question.description.length > 100 
+                  ? `${question.description.substring(0, 100)}...` 
+                  : question.description}
+              </p>
           </div>
         </TableCell>
         
         {/* Type & Answers Column */}
         <TableCell className="py-4">
           <div className="space-y-3">
-            {question.question_type === QuestionType.MCQ ? (
+          {question.question_type === QuestionType.MCQ ? (
               <>
                 {/* MCQ Details */}
-                <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
                   <div className="p-2 bg-emerald-100 rounded-lg">
                     <CheckCircle className="h-4 w-4 text-emerald-600" />
-                  </div>
+            </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900">
                       {getCorrectOptionsCount(question.correct_options || [])} Correct
@@ -680,10 +680,10 @@ const QuestionList = () => {
             ) : (
               <>
                 {/* Long Answer Details */}
-                <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
                   <div className="p-2 bg-purple-100 rounded-lg">
                     <MessageSquare className="h-4 w-4 text-purple-600" />
-                  </div>
+              </div>
                   <div>
                     <p className="text-sm font-medium text-gray-900">
                       {question.max_word_count || 'Unlimited'} Words
@@ -697,8 +697,8 @@ const QuestionList = () => {
                   Long Answer
                 </Badge>
               </>
-            )}
-          </div>
+              )}
+            </div>
         </TableCell>
         
         {/* Tags Column */}
@@ -709,23 +709,23 @@ const QuestionList = () => {
                 <div className="flex flex-wrap gap-1.5">
                   {question.tags.slice(0, 3).map((tag) => (
                     <Button
-                      key={tag.id}
+                  key={tag.id} 
                       variant="ghost"
                       className="h-auto p-0 hover:bg-transparent"
                       onClick={() => handleQuickTagAssignment(question)}
                       title="Click to manage tags"
                     >
                       <Badge 
-                        variant="secondary" 
+                  variant="secondary" 
                         className="text-xs hover:opacity-80 transition-all duration-200 cursor-pointer hover:scale-105"
-                        style={{ 
-                          backgroundColor: tag.color + '20', 
-                          color: tag.color,
-                          borderColor: tag.color + '40'
-                        }}
-                      >
-                        {tag.name}
-                      </Badge>
+                  style={{ 
+                    backgroundColor: tag.color + '20', 
+                    color: tag.color,
+                    borderColor: tag.color + '40'
+                  }}
+                >
+                  {tag.name}
+                </Badge>
                     </Button>
                   ))}
                   {question.tags.length > 3 && (
@@ -740,9 +740,9 @@ const QuestionList = () => {
                         className="text-xs hover:bg-gray-100 transition-colors cursor-pointer"
                       >
                         +{question.tags.length - 3}
-                      </Badge>
+              </Badge>
                     </Button>
-                  )}
+            )}
                 </div>
                 <p className="text-xs text-gray-500">
                   {question.tags.length} tag{question.tags.length > 1 ? 's' : ''} assigned
@@ -762,7 +762,7 @@ const QuestionList = () => {
                   >
                     <TagIcon className="h-3 w-3 mr-1" />
                     Assign Tags
-                  </Badge>
+              </Badge>
                 </Button>
                 <p className="text-xs text-amber-600 font-medium">
                   Required for contests
@@ -778,11 +778,11 @@ const QuestionList = () => {
             {question.image_url ? (
               <div className="relative group/image">
                 <div className="relative overflow-hidden rounded-lg border-2 border-gray-200 group-hover/image:border-blue-300 transition-colors shadow-sm">
-                  <img
-                    src={`${API_SERVER_URL}${question.image_url}`}
-                    alt="Question"
+                <img
+                  src={`${API_SERVER_URL}${question.image_url}`}
+                  alt="Question"
                     className="w-12 h-12 object-cover group-hover/image:scale-110 transition-transform duration-200"
-                  />
+                />
                 </div>
                 <Button
                   variant="destructive"
@@ -837,7 +837,7 @@ const QuestionList = () => {
               </div>
               <div>
                 <div className="text-sm font-medium text-gray-900">
-                  {new Date(question.created_at).toLocaleDateString()}
+            {new Date(question.created_at).toLocaleDateString()}
                 </div>
                 <div className="text-xs text-gray-500">
                   {new Date(question.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -851,24 +851,24 @@ const QuestionList = () => {
         <TableCell className="pr-6 py-4">
           <div className="flex items-center justify-center space-x-2 opacity-60 group-hover:opacity-100 transition-opacity">
             <div className="flex items-center space-x-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickTagAssignment(question)}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleQuickTagAssignment(question)}
                 className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-md"
                 title="Assign Tags"
-              >
-                <TagIcon className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/admin/questions/${question.id}/edit`)}
+            >
+              <TagIcon className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/admin/questions/${question.id}/edit`)}
                 className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-md"
                 title="Edit Question"
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
             </div>
           </div>
         </TableCell>
@@ -893,12 +893,12 @@ const QuestionList = () => {
                     <div className="absolute inset-0 bg-white/20 rounded-2xl blur-xl"></div>
                     <div className="relative p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
                       <Brain className="h-12 w-12 text-white" />
-                    </div>
+                </div>
                   </div>
                   <div>
                     <h1 className="text-4xl lg:text-5xl font-bold text-white mb-2">
                       Question Bank
-                    </h1>
+              </h1>
                     <p className="text-blue-100 text-lg">
                       Create, manage, and organize your question library
                     </p>
@@ -913,17 +913,17 @@ const QuestionList = () => {
                       </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-3">
-                  <Button
-                    onClick={() => navigate('/admin/questions/create')}
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <Button
+                onClick={() => navigate('/admin/questions/create')}
                     className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-sm transition-all duration-300 hover:scale-105 hover:shadow-lg"
                     size="lg"
-                  >
+              >
                     <Plus className="h-5 w-5 mr-2" />
-                    Create Question
-                  </Button>
+                Create Question
+              </Button>
                   <Button
                     variant="outline"
                     onClick={() => navigate('/admin/tags')}
@@ -932,7 +932,7 @@ const QuestionList = () => {
                   >
                     <TagIcon className="h-5 w-5 mr-2" />
                     Manage Tags
-                  </Button>
+              </Button>
                 </div>
               </div>
             </div>
@@ -949,7 +949,7 @@ const QuestionList = () => {
                     <div className="flex items-center space-x-2">
                       <div className="w-full bg-blue-200 rounded-full h-2">
                         <div className="bg-blue-600 h-2 rounded-full" style={{ width: '100%' }}></div>
-                      </div>
+                  </div>
                     </div>
                   </div>
                   <div className="relative">
@@ -974,7 +974,7 @@ const QuestionList = () => {
                           className="bg-emerald-600 h-2 rounded-full transition-all duration-500" 
                           style={{ width: `${questions.length > 0 ? (mcqQuestions.length / questions.length) * 100 : 0}%` }}
                         ></div>
-                      </div>
+                  </div>
                       <span className="text-xs text-emerald-600 font-medium">
                         {questions.length > 0 ? Math.round((mcqQuestions.length / questions.length) * 100) : 0}%
                       </span>
@@ -1002,7 +1002,7 @@ const QuestionList = () => {
                           className="bg-purple-600 h-2 rounded-full transition-all duration-500" 
                           style={{ width: `${questions.length > 0 ? (longAnswerQuestions.length / questions.length) * 100 : 0}%` }}
                         ></div>
-                      </div>
+                  </div>
                       <span className="text-xs text-purple-600 font-medium">
                         {questions.length > 0 ? Math.round((longAnswerQuestions.length / questions.length) * 100) : 0}%
                       </span>
@@ -1032,7 +1032,7 @@ const QuestionList = () => {
                           className="bg-amber-600 h-2 rounded-full transition-all duration-500" 
                           style={{ width: `${questions.length > 0 ? (questions.filter(q => q.needs_tags).length / questions.length) * 100 : 0}%` }}
                         ></div>
-                      </div>
+                  </div>
                       <span className="text-xs text-amber-600 font-medium">
                         {questions.length > 0 ? Math.round((questions.filter(q => q.needs_tags).length / questions.length) * 100) : 0}%
                       </span>
@@ -1054,16 +1054,16 @@ const QuestionList = () => {
             <CardContent className="p-8">
               <div className="space-y-6">
                 {/* Search and Quick Actions */}
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 flex-1">
                     <div className="relative group">
                       <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 group-focus-within:text-blue-500 transition-colors" />
-                      <Input
+                    <Input
                         placeholder="Search questions by title, description, or content..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-12 pr-4 py-3 w-full sm:w-80 border-gray-200 focus:border-blue-500 focus:ring-blue-500/20 rounded-xl text-sm bg-gray-50/50 focus:bg-white transition-all duration-200"
-                      />
+                    />
                       {searchTerm && (
                         <Button
                           variant="ghost"
@@ -1074,12 +1074,12 @@ const QuestionList = () => {
                           <X className="h-3 w-3" />
                         </Button>
                       )}
-                    </div>
-                    
-                    <Select value={questionTypeFilter} onValueChange={(value) => setQuestionTypeFilter(value as QuestionType | 'all')}>
+                  </div>
+                  
+                  <Select value={questionTypeFilter} onValueChange={(value) => setQuestionTypeFilter(value as QuestionType | 'all')}>
                       <SelectTrigger className="w-full sm:w-52 border-gray-200 focus:border-blue-500 rounded-xl bg-gray-50/50 focus:bg-white transition-all duration-200">
-                        <SelectValue placeholder="All question types" />
-                      </SelectTrigger>
+                      <SelectValue placeholder="All question types" />
+                    </SelectTrigger>
                       <SelectContent className="rounded-xl border-0 shadow-xl">
                         <SelectItem value="all" className="rounded-lg">
                           <div className="flex items-center space-x-2">
@@ -1099,74 +1099,74 @@ const QuestionList = () => {
                             <span>Long Answer Only</span>
                           </div>
                         </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    
-                    <Button
-                      variant={showNeedsTags ? "default" : "outline"}
-                      onClick={() => setShowNeedsTags(!showNeedsTags)}
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button
+                    variant={showNeedsTags ? "default" : "outline"}
+                    onClick={() => setShowNeedsTags(!showNeedsTags)}
                       className={`w-full sm:w-auto rounded-xl transition-all duration-200 ${
                         showNeedsTags 
                           ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg' 
                           : 'border-amber-200 text-amber-700 hover:bg-amber-50 hover:border-amber-300'
                       }`}
-                    >
-                      <Filter className="h-4 w-4 mr-2" />
-                      Need Tags
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    Need Tags
                       {questions.filter(q => q.needs_tags).length > 0 && (
                         <Badge className="ml-2 bg-amber-100 text-amber-800 border-amber-200">
                           {questions.filter(q => q.needs_tags).length}
                         </Badge>
                       )}
-                    </Button>
-                  </div>
-                  
+                  </Button>
+                </div>
+                
                   <div className="flex items-center space-x-3">
-                    <Button
-                      variant="outline"
-                      onClick={handleDownloadTemplate}
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadTemplate}
                       className="border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300 rounded-xl transition-all duration-200"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Template
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={importing}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Template
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importing}
                       className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 rounded-xl transition-all duration-200 disabled:opacity-50"
-                    >
-                      {importing ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
-                          Importing...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Import
-                        </>
-                      )}
-                    </Button>
-                    
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".csv,.txt"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    
-                    <Button
-                      variant="outline"
-                      onClick={loadQuestions}
-                      disabled={loading}
+                  >
+                    {importing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import
+                      </>
+                    )}
+                  </Button>
+                  
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.txt"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  
+                  <Button
+                    variant="outline"
+                    onClick={loadQuestions}
+                    disabled={loading}
                       className="border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 rounded-xl transition-all duration-200 disabled:opacity-50"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </div>
+                  >
+                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
                 </div>
 
                 {/* Active Filters Display */}
@@ -1251,7 +1251,7 @@ const QuestionList = () => {
                       )}
                     </div>
                   </div>
-                </CardTitle>
+              </CardTitle>
                 {selectedQuestions.length > 0 && (
                   <div className="flex items-center space-x-3">
                     <Button
@@ -1400,7 +1400,7 @@ const QuestionList = () => {
 
                   {/* Enhanced Tabular Layout */}
                   <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
-                    <Table>
+                <Table>
                       <TableHeader className="bg-gradient-to-r from-gray-50 to-blue-50/30 sticky top-0 z-10">
                         <TableRow className="border-b-2 border-gray-200 hover:bg-gray-50/80">
                           <TableHead className="w-12 pl-6 py-4">
@@ -1447,12 +1447,12 @@ const QuestionList = () => {
                               <span>Actions</span>
                             </div>
                           </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {questions.map(renderQuestionRow)}
-                      </TableBody>
-                    </Table>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {questions.map(renderQuestionRow)}
+                  </TableBody>
+                </Table>
                   </div>
                 </div>
               )}
@@ -1530,13 +1530,13 @@ const QuestionList = () => {
                     <div className="text-3xl font-bold text-blue-600 mb-1">{importResult.total_rows}</div>
                     <div className="text-sm text-blue-800 font-medium">Total Rows Processed</div>
                     <div className="text-xs text-gray-500 mt-1">From CSV file</div>
-                  </div>
+                </div>
                   <div className="text-center p-4 bg-white rounded-lg shadow-sm border">
                     <div className="text-3xl font-bold text-green-600 mb-1">{importResult.successful}</div>
                     <div className="text-sm text-green-800 font-medium">Successfully Imported</div>
                     <div className="text-xs text-gray-500 mt-1">
                       {importResult.total_rows > 0 ? `${Math.round((importResult.successful / importResult.total_rows) * 100)}% success rate` : '0% success rate'}
-                    </div>
+                </div>
                   </div>
                   <div className="text-center p-4 bg-white rounded-lg shadow-sm border">
                     <div className="text-3xl font-bold text-amber-600 mb-1">{importResult.duplicates || 0}</div>
@@ -1554,7 +1554,7 @@ const QuestionList = () => {
                   </div>
                 </div>
               </div>
-
+              
               {/* Successfully Created Questions */}
               {importResult.created_problems && importResult.created_problems.length > 0 && (
                 <div className="p-6 border-b">
@@ -1651,13 +1651,13 @@ const QuestionList = () => {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm text-red-800 font-medium break-words">
-                                  {error}
-                                </p>
+                        {error}
+                      </p>
                                 {error.includes('Row') && (
                                   <p className="text-xs text-red-600 mt-1">
                                     Check your CSV file for this specific row and fix the issue
-                                  </p>
-                                )}
+                      </p>
+                    )}
                               </div>
                             </div>
                           </div>
@@ -1667,7 +1667,7 @@ const QuestionList = () => {
                   </div>
                 </div>
               )}
-
+              
               {/* Next Steps and Instructions */}
               <div className="p-6">
                 <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
@@ -1735,7 +1735,7 @@ const QuestionList = () => {
                           className="bg-white hover:bg-green-50 border-green-300 text-green-700"
                         >
                           View Questions Needing Tags
-                        </Button>
+                </Button>
                         <Button 
                           size="sm" 
                           variant="outline"

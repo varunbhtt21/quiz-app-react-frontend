@@ -933,13 +933,13 @@ const MCQList = () => {
                       <div className="text-3xl font-bold text-blue-600 mb-1">{importResult.total_rows}</div>
                       <div className="text-sm text-blue-800 font-medium">Total Rows Processed</div>
                       <div className="text-xs text-gray-500 mt-1">From CSV file</div>
-                    </div>
+                  </div>
                     <div className="text-center p-4 bg-white rounded-lg shadow-sm border">
                       <div className="text-3xl font-bold text-green-600 mb-1">{importResult.successful}</div>
                       <div className="text-sm text-green-800 font-medium">Successfully Imported</div>
                       <div className="text-xs text-gray-500 mt-1">
                         {importResult.total_rows > 0 ? `${Math.round((importResult.successful / importResult.total_rows) * 100)}% success rate` : '0% success rate'}
-                      </div>
+                  </div>
                     </div>
                     <div className="text-center p-4 bg-white rounded-lg shadow-sm border">
                       <div className="text-3xl font-bold text-amber-600 mb-1">{importResult.duplicates || 0}</div>
@@ -970,7 +970,7 @@ const MCQList = () => {
                         <Badge className="ml-3 bg-green-100 text-green-800">
                           {importResult.created_problems.length} questions
                         </Badge>
-                      </h3>
+                    </h3>
                       <div className="text-sm text-gray-500">
                         All questions need tags before use in contests
                       </div>
@@ -979,7 +979,7 @@ const MCQList = () => {
                     <div className="bg-green-50 rounded-lg border border-green-200">
                       <div className="max-h-64 overflow-y-auto">
                         <div className="divide-y divide-green-200">
-                          {importResult.created_problems.map((problem, index) => (
+                      {importResult.created_problems.map((problem, index) => (
                             <div key={problem.id} className="p-4 hover:bg-green-100 transition-colors">
                               <div className="flex items-start justify-between">
                                 <div className="flex-1 min-w-0">
@@ -995,8 +995,8 @@ const MCQList = () => {
                                     <span className="flex items-center">
                                       <span className="font-medium">Correct Answer(s):</span>
                                       <Badge className="ml-1 bg-green-200 text-green-800 text-xs">
-                                        {problem.correct_options.join(', ')}
-                                      </Badge>
+                            {problem.correct_options.join(', ')}
+                          </Badge>
                                     </span>
                                     <span className="flex items-center">
                                       <AlertCircle className="h-3 w-3 mr-1 text-amber-500" />
@@ -1013,8 +1013,8 @@ const MCQList = () => {
                                   </Badge>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                        </div>
+                      ))}
                         </div>
                       </div>
                     </div>
@@ -1033,7 +1033,7 @@ const MCQList = () => {
                         <Badge className="ml-3 bg-red-100 text-red-800">
                           {importResult.errors.length} errors
                         </Badge>
-                      </h3>
+                    </h3>
                       <div className="text-sm text-gray-500">
                         Fix these issues and re-import
                       </div>
@@ -1042,7 +1042,7 @@ const MCQList = () => {
                     <div className="bg-red-50 rounded-lg border border-red-200">
                       <div className="max-h-64 overflow-y-auto">
                         <div className="divide-y divide-red-200">
-                          {importResult.errors.map((error, index) => (
+                      {importResult.errors.map((error, index) => (
                             <div key={index} className="p-4 hover:bg-red-100 transition-colors">
                               <div className="flex items-start space-x-3">
                                 <div className="flex-shrink-0 mt-0.5">
@@ -1063,8 +1063,8 @@ const MCQList = () => {
                                   )}
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                        </div>
+                      ))}
                         </div>
                       </div>
                     </div>
@@ -1088,7 +1088,7 @@ const MCQList = () => {
                             <li>• {importResult.successful} questions are now in your question bank</li>
                             <li>• All imported questions are marked as "Needs Tags"</li>
                             <li>• Use the "Need Tags Only" filter to find and tag these questions</li>
-                          </ul>
+                  </ul>
                         </div>
                       )}
 
