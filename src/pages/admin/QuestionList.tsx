@@ -425,9 +425,13 @@ const QuestionList = () => {
                     <div className="relative group/image">
                       <div className="relative overflow-hidden rounded-lg border-2 border-gray-200 group-hover/image:border-blue-300 transition-colors">
                         <img
-                          src={`${API_SERVER_URL}${question.image_url}`}
+                          src={question.image_url.startsWith('http') ? question.image_url : `${API_SERVER_URL}${question.image_url}`}
                           alt="Question"
                           className="w-16 h-16 object-cover group-hover/image:scale-110 transition-transform duration-200"
+                          onError={(e) => {
+                            console.error('Failed to load image:', question.image_url);
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
                         />
                       </div>
                       <Button
@@ -779,9 +783,13 @@ const QuestionList = () => {
               <div className="relative group/image">
                 <div className="relative overflow-hidden rounded-lg border-2 border-gray-200 group-hover/image:border-blue-300 transition-colors shadow-sm">
                 <img
-                  src={`${API_SERVER_URL}${question.image_url}`}
+                  src={question.image_url.startsWith('http') ? question.image_url : `${API_SERVER_URL}${question.image_url}`}
                   alt="Question"
                     className="w-12 h-12 object-cover group-hover/image:scale-110 transition-transform duration-200"
+                    onError={(e) => {
+                      console.error('Failed to load image:', question.image_url);
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
                 />
                 </div>
                 <Button

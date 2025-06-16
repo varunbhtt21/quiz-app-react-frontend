@@ -107,7 +107,7 @@ const EditQuestion = () => {
       
       // Set image preview
       if (questionData.image_url) {
-        setImagePreview(`${API_SERVER_URL}${questionData.image_url}`);
+        setImagePreview(questionData.image_url.startsWith('http') ? questionData.image_url : `${API_SERVER_URL}${questionData.image_url}`);
       }
       
     } catch (error) {
