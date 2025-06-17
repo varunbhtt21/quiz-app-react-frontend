@@ -9,52 +9,96 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Home, ChevronRight, User, Info, UserPlus, Mail, Lock, Shield, CheckCircle, Users, BookOpen, Trophy, UserCheck } from 'lucide-react';
+import { ArrowLeft, Save, Home, ChevronRight, User, Info, UserPlus, Mail, Lock, Shield, CheckCircle, Users, BookOpen, Trophy, UserCheck, Phone } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService } from '../../services/api';
 
-interface StudentFormData {
+interface UserFormData {
   email: string;
-  password: string;
-  confirmPassword: string;
+  mobile?: string;
+  password?: string;
+  confirmPassword?: string;
 }
 
-const CreateStudent = () => {
+const CreateUser = () => {
   const navigate = useNavigate();
-  const { register, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm<StudentFormData>();
+  const { register, handleSubmit, formState: { errors, isSubmitting }, watch } = useForm<UserFormData>();
   const [selectedRole, setSelectedRole] = useState<string>('student');
 
   const password = watch('password');
 
-  const onSubmit = async (data: StudentFormData) => {
-    if (data.password !== data.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive"
-      });
-      return;
-    }
+  const onSubmit = async (data: UserFormData) => {
+    if (selectedRole === 'admin') {
+      // Admin validation
+      if (!data.password || !data.confirmPassword) {
+        toast({
+          title: "Error",
+          description: "Password is required for admin users",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (data.password !== data.confirmPassword) {
+        toast({
+          title: "Error",
+          description: "Passwords do not match",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    try {
-      await apiService.createStudent({
-        email: data.email,
-        password: data.password,
-        role: selectedRole as 'admin' | 'student'
-      });
-      
-      toast({
-        title: "Success",
-        description: `${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} created successfully!`
-      });
-      
-      navigate('/admin/students');
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create user",
-        variant: "destructive"
-      });
+      try {
+        await apiService.createStudent({
+          email: data.email,
+          password: data.password,
+          role: selectedRole as 'admin' | 'student'
+        });
+        
+        toast({
+          title: "Success",
+          description: "Administrator created successfully!"
+        });
+        
+        navigate('/admin/students');
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to create administrator",
+          variant: "destructive"
+        });
+      }
+    } else {
+      // Student validation
+      if (!data.mobile) {
+        toast({
+          title: "Error",
+          description: "Mobile number is required for student users",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      try {
+        // Create pre-registered student
+        await apiService.createPreRegisteredStudent({
+          email: data.email,
+          mobile: data.mobile
+        });
+        
+        toast({
+          title: "Success",
+          description: "Student created successfully! An invitation email has been sent."
+        });
+        
+        navigate('/admin/students');
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to create student",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -77,10 +121,10 @@ const CreateStudent = () => {
               <div>
                 <div className="flex items-center space-x-2 mb-2">
                   <UserPlus className="h-8 w-8" />
-                  <h1 className="text-4xl font-bold">👤 Add New Student</h1>
+                  <h1 className="text-4xl font-bold">👤 Add User</h1>
                 </div>
                 <p className="text-blue-100 text-lg mb-4">
-                  Create a new student account and set up their access to the learning platform
+                  Create a new user account and set up their access to the platform
                 </p>
                 <div className="flex items-center space-x-4">
                   <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
@@ -140,7 +184,7 @@ const CreateStudent = () => {
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Info className="h-5 w-5 text-blue-600" />
               </div>
-              <span>Student Account Overview</span>
+              <span>User Account Overview</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -228,17 +272,182 @@ const CreateStudent = () => {
               <div className="p-2 bg-blue-100 rounded-lg">
                 <User className="h-5 w-5 text-blue-600" />
               </div>
-              <span>Student Account Details</span>
+              <span>User Account Details</span>
             </CardTitle>
-            <p className="text-gray-600 text-sm mt-1">Enter the student's information to create their account</p>
+            <p className="text-gray-600 text-sm mt-1">Enter the user information to create their account</p>
           </CardHeader>
           <CardContent className="p-8">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-              {/* Email Field */}
+              {/* Role Selection - Card Interface */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Label className="text-sm font-semibold text-gray-700">User Role *</Label>
+                  <HelpTooltip content="Select whether this user should be a Student or Administrator. Students will be pre-registered and use OTPless authentication, while Administrators require immediate password setup." />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Student Card */}
+                  <div 
+                    className={`relative cursor-pointer rounded-xl border-2 p-6 transition-all duration-200 hover:shadow-lg ${
+                      selectedRole === 'student' 
+                        ? 'border-green-500 bg-green-50 shadow-md' 
+                        : 'border-gray-200 bg-white hover:border-green-300'
+                    }`}
+                    onClick={() => setSelectedRole('student')}
+                  >
+                    {selectedRole === 'student' && (
+                      <div className="absolute top-3 right-3">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
+                          <CheckCircle className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-start space-x-4">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${
+                        selectedRole === 'student' ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                        <UserCheck className={`h-6 w-6 ${
+                          selectedRole === 'student' ? 'text-green-600' : 'text-gray-600'
+                        }`} />
+                      </div>
+                      
+                      <div className="flex-1">
+                        <h3 className={`text-lg font-semibold ${
+                          selectedRole === 'student' ? 'text-green-900' : 'text-gray-900'
+                        }`}>
+                          Student
+                        </h3>
+                        <p className={`text-sm mt-1 ${
+                          selectedRole === 'student' ? 'text-green-700' : 'text-gray-600'
+                        }`}>
+                          Learning platform access with course enrollment
+                        </p>
+                        
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              selectedRole === 'student' ? 'bg-green-500' : 'bg-gray-400'
+                            }`}></div>
+                            <span className={`text-xs ${
+                              selectedRole === 'student' ? 'text-green-700' : 'text-gray-600'
+                            }`}>
+                              Pre-registered with invitation email
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              selectedRole === 'student' ? 'bg-green-500' : 'bg-gray-400'
+                            }`}></div>
+                            <span className={`text-xs ${
+                              selectedRole === 'student' ? 'text-green-700' : 'text-gray-600'
+                            }`}>
+                              OTPless authentication
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              selectedRole === 'student' ? 'bg-green-500' : 'bg-gray-400'
+                            }`}></div>
+                            <span className={`text-xs ${
+                              selectedRole === 'student' ? 'text-green-700' : 'text-gray-600'
+                            }`}>
+                              Course participation & quiz access
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Administrator Card */}
+                  <div 
+                    className={`relative cursor-pointer rounded-xl border-2 p-6 transition-all duration-200 hover:shadow-lg ${
+                      selectedRole === 'admin' 
+                        ? 'border-red-500 bg-red-50 shadow-md' 
+                        : 'border-gray-200 bg-white hover:border-red-300'
+                    }`}
+                    onClick={() => setSelectedRole('admin')}
+                  >
+                    {selectedRole === 'admin' && (
+                      <div className="absolute top-3 right-3">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500">
+                          <CheckCircle className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-start space-x-4">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${
+                        selectedRole === 'admin' ? 'bg-red-100' : 'bg-gray-100'
+                      }`}>
+                        <Shield className={`h-6 w-6 ${
+                          selectedRole === 'admin' ? 'text-red-600' : 'text-gray-600'
+                        }`} />
+                      </div>
+                      
+                      <div className="flex-1">
+                        <h3 className={`text-lg font-semibold ${
+                          selectedRole === 'admin' ? 'text-red-900' : 'text-gray-900'
+                        }`}>
+                          Administrator
+                        </h3>
+                        <p className={`text-sm mt-1 ${
+                          selectedRole === 'admin' ? 'text-red-700' : 'text-gray-600'
+                        }`}>
+                          Full platform management and administrative access
+                        </p>
+                        
+                        <div className="mt-3 space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              selectedRole === 'admin' ? 'bg-red-500' : 'bg-gray-400'
+                            }`}></div>
+                            <span className={`text-xs ${
+                              selectedRole === 'admin' ? 'text-red-700' : 'text-gray-600'
+                            }`}>
+                              Immediate account activation
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              selectedRole === 'admin' ? 'bg-red-500' : 'bg-gray-400'
+                            }`}></div>
+                            <span className={`text-xs ${
+                              selectedRole === 'admin' ? 'text-red-700' : 'text-gray-600'
+                            }`}>
+                              Email & password authentication
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <div className={`w-2 h-2 rounded-full ${
+                              selectedRole === 'admin' ? 'bg-red-500' : 'bg-gray-400'
+                            }`}></div>
+                            <span className={`text-xs ${
+                              selectedRole === 'admin' ? 'text-red-700' : 'text-gray-600'
+                            }`}>
+                              User, course & contest management
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-gray-600 text-center">
+                  {selectedRole === 'admin' 
+                    ? '👨‍💼 Administrators require password setup and have full platform access.'
+                    : '🎓 Students will be pre-registered and receive invitation emails for OTPless authentication.'
+                  }
+                </p>
+              </div>
+
+              {/* Email Field - Always required */}
               <div className="space-y-3">
                 <div className="flex items-center space-x-2">
                   <Label htmlFor="email" className="text-sm font-semibold text-gray-700">Email Address *</Label>
-                  <HelpTooltip content="Student's email address will be used for login. Must be unique in the system." />
+                  <HelpTooltip content={selectedRole === 'admin' ? "Administrator's email address for login and communications." : "Student's email address for invitation and communications. Must be unique in the system."} />
                 </div>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -252,7 +461,7 @@ const CreateStudent = () => {
                         message: 'Invalid email address'
                       }
                     })}
-                    placeholder="e.g., student@example.com"
+                    placeholder={selectedRole === 'admin' ? "e.g., admin@institute.com" : "e.g., student@example.com"}
                     className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
@@ -264,105 +473,113 @@ const CreateStudent = () => {
                 )}
                 <p className="text-xs text-gray-500 flex items-center">
                   <Info className="h-3 w-3 mr-1" />
-                  This email will be used for student login and communications
-                </p>
-              </div>
-
-              {/* Password Field */}
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Label htmlFor="password" className="text-sm font-semibold text-gray-700">Password *</Label>
-                  <HelpTooltip content="Create a secure password for the student. They can change it later from their profile." />
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    id="password"
-                    type="password"
-                    {...register('password', { 
-                      required: 'Password is required',
-                      minLength: { value: 6, message: 'Password must be at least 6 characters' }
-                    })}
-                    placeholder="Enter secure password"
-                    className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
-                    {errors.password.message}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500 flex items-center">
-                  <Shield className="h-3 w-3 mr-1" />
-                  Minimum 6 characters. Student can change this later.
-                </p>
-              </div>
-
-              {/* Confirm Password Field */}
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Label htmlFor="confirmPassword" className="text-sm font-semibold text-gray-700">Confirm Password *</Label>
-                  <HelpTooltip content="Re-enter the password to confirm it's correct." />
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    {...register('confirmPassword', { 
-                      required: 'Please confirm the password',
-                      validate: value => value === password || 'Passwords do not match'
-                    })}
-                    placeholder="Confirm password"
-                    className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                {errors.confirmPassword && (
-                  <p className="text-sm text-red-600 flex items-center">
-                    <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
-                    {errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Role Selection */}
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Label htmlFor="role" className="text-sm font-semibold text-gray-700">User Role *</Label>
-                  <HelpTooltip content="Select whether this user should be an Administrator or Student. Administrators can access the admin panel, while students can only access the learning dashboard." />
-                </div>
-                <div className="relative">
-                  <Select
-                    value={selectedRole}
-                    onValueChange={setSelectedRole}
-                  >
-                    <SelectTrigger className="w-full h-12 border-2 border-gray-200 focus:border-blue-500">
-                      <SelectValue placeholder="Select user role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="student">
-                        <div className="flex items-center space-x-2">
-                          <UserCheck className="h-4 w-4 text-green-600" />
-                          <span>Student</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="admin">
-                        <div className="flex items-center space-x-2">
-                          <Shield className="h-4 w-4 text-red-600" />
-                          <span>Administrator</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-xs text-gray-600">
                   {selectedRole === 'admin' 
-                    ? '👨‍💼 Administrators have full access to manage students, courses, and contests.'
-                    : '🎓 Students can participate in quizzes and view their progress.'
+                    ? 'This email will be used for administrator login and system communications'
+                    : 'An invitation email will be sent to this address for account activation'
                   }
                 </p>
               </div>
+
+              {/* Mobile Number Field - Only for Students */}
+              {selectedRole === 'student' && (
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="mobile" className="text-sm font-semibold text-gray-700">Mobile Number *</Label>
+                    <HelpTooltip content="Student's mobile number for OTPless authentication. Supports various formats like +91-XXXXXXXXXX, 91XXXXXXXXXX, or 10-digit numbers." />
+                  </div>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      id="mobile"
+                      type="tel"
+                      {...register('mobile', { 
+                        required: selectedRole === 'student' ? 'Mobile number is required for students' : false,
+                        pattern: {
+                          value: /^(\+91|91)?[6-9]\d{9}$/,
+                          message: 'Invalid Indian mobile number'
+                        }
+                      })}
+                      placeholder="e.g., +91-9876543210 or 9876543210"
+                      className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                  {errors.mobile && (
+                    <p className="text-sm text-red-600 flex items-center">
+                      <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                      {errors.mobile.message}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 flex items-center">
+                    <Info className="h-3 w-3 mr-1" />
+                    Mobile number will be normalized and used for OTPless authentication
+                  </p>
+                </div>
+              )}
+
+              {/* Password Fields - Only for Admins */}
+              {selectedRole === 'admin' && (
+                <>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="password" className="text-sm font-semibold text-gray-700">Password *</Label>
+                      <HelpTooltip content="Create a secure password for the administrator. They can change it later from their profile." />
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="password"
+                        type="password"
+                        {...register('password', { 
+                          required: selectedRole === 'admin' ? 'Password is required for administrators' : false,
+                          minLength: { value: 6, message: 'Password must be at least 6 characters' }
+                        })}
+                        placeholder="Enter secure password"
+                        className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                    {errors.password && (
+                      <p className="text-sm text-red-600 flex items-center">
+                        <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.password.message}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 flex items-center">
+                      <Info className="h-3 w-3 mr-1" />
+                      Password must be at least 6 characters long
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="confirmPassword" className="text-sm font-semibold text-gray-700">Confirm Password *</Label>
+                      <HelpTooltip content="Re-enter the password to confirm it matches exactly." />
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        {...register('confirmPassword', { 
+                          required: selectedRole === 'admin' ? 'Please confirm your password' : false,
+                          validate: value => selectedRole === 'admin' && password ? (value === password || 'Passwords do not match') : true
+                        })}
+                        placeholder="Confirm password"
+                        className="pl-10 h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      />
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="text-sm text-red-600 flex items-center">
+                        <span className="w-1 h-1 bg-red-600 rounded-full mr-2"></span>
+                        {errors.confirmPassword.message}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 flex items-center">
+                      <Info className="h-3 w-3 mr-1" />
+                      Must match the password entered above
+                    </p>
+                  </div>
+                </>
+              )}
 
               {/* Enhanced Next Steps Preview */}
               <Card className="bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200">
@@ -376,27 +593,55 @@ const CreateStudent = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4 text-sm">
-                    <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
-                      <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
-                      <div>
-                        <p className="font-medium text-gray-900">Student Account Created</p>
-                        <p className="text-gray-600">Account will appear in the Students list with "Active" status</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
-                      <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
-                      <div>
-                        <p className="font-medium text-gray-900">Course Enrollment</p>
-                        <p className="text-gray-600">Enroll student in courses from the course details pages</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
-                      <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
-                      <div>
-                        <p className="font-medium text-gray-900">Student Access</p>
-                        <p className="text-gray-600">Student can login and participate in course contests immediately</p>
-                      </div>
-                    </div>
+                    {selectedRole === 'student' ? (
+                      <>
+                        <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
+                          <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
+                          <div>
+                            <p className="font-medium text-gray-900">Student Pre-Registered</p>
+                            <p className="text-gray-600">Account created with PENDING status, mobile number normalized and validated</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
+                          <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
+                          <div>
+                            <p className="font-medium text-gray-900">Invitation Email Sent</p>
+                            <p className="text-gray-600">Student receives invitation email with activation instructions</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
+                          <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
+                          <div>
+                            <p className="font-medium text-gray-900">Student Activation</p>
+                            <p className="text-gray-600">Student uses OTPless authentication to complete registration and access platform</p>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
+                          <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
+                          <div>
+                            <p className="font-medium text-gray-900">Administrator Account Created</p>
+                            <p className="text-gray-600">Account will appear in the Users list with "Active" status</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
+                          <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
+                          <div>
+                            <p className="font-medium text-gray-900">Immediate Access</p>
+                            <p className="text-gray-600">Administrator can login immediately using email and password</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4 p-3 bg-white rounded-lg border border-blue-100">
+                          <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
+                          <div>
+                            <p className="font-medium text-gray-900">Full Platform Access</p>
+                            <p className="text-gray-600">Administrator has complete access to manage users, courses, and contests</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -421,12 +666,12 @@ const CreateStudent = () => {
                   {isSubmitting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Creating Student...</span>
+                      <span>Creating {selectedRole === 'admin' ? 'Administrator' : 'Student'}...</span>
                     </>
                   ) : (
                     <>
                       <Save className="h-4 w-4" />
-                      <span>Create Student Account</span>
+                      <span>Create Account</span>
                     </>
                   )}
                 </Button>
@@ -439,4 +684,4 @@ const CreateStudent = () => {
   );
 };
 
-export default CreateStudent; 
+export default CreateUser; 

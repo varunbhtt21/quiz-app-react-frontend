@@ -752,6 +752,16 @@ class ApiService {
     return this.createUser(data);
   }
 
+  async createPreRegisteredStudent(data: { email: string; mobile: string }) {
+    const response = await fetch(`${API_BASE_URL}/students/create-preregistered`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
+    });
+    
+    return this.handleResponse(response);
+  }
+
   async updateStudent(id: string, data: any) {
     return this.updateUser(id, data);
   }
