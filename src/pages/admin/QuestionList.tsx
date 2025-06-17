@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Search, Edit, Trash2, FileText, Brain, Target, Calendar, Filter, Download, RefreshCw, BookOpen, CheckCircle, Clock, TrendingUp, Upload, FileSpreadsheet, AlertCircle, X, Camera, ImageIcon, Trash, Tag as TagIcon, MessageSquare, AlignLeft, List, HelpCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, FileText, Brain, Target, Calendar, Filter, Download, RefreshCw, BookOpen, CheckCircle, Clock, TrendingUp, Upload, FileSpreadsheet, AlertCircle, X, Camera, ImageIcon, Trash, Tag as TagIcon, MessageSquare, AlignLeft, List, HelpCircle, Eye, Info, CheckCircle2, Award } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { apiService, QuestionType, ScoringType, QuestionResponse } from '../../services/api';
 import { API_SERVER_URL } from '../../config/api';
@@ -54,6 +54,10 @@ const QuestionList = () => {
   const [selectedQuestionForTagging, setSelectedQuestionForTagging] = useState<QuestionResponse | null>(null);
   const [selectedTagsForAssignment, setSelectedTagsForAssignment] = useState<Tag[]>([]);
   const [savingTags, setSavingTags] = useState(false);
+
+  // Question preview modal state
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [selectedQuestionForPreview, setSelectedQuestionForPreview] = useState<QuestionResponse | null>(null);
 
   useEffect(() => {
     loadQuestions();
@@ -356,6 +360,16 @@ const QuestionList = () => {
     setSelectedTagsForAssignment([]);
   };
 
+  const handleQuestionPreview = (question: QuestionResponse) => {
+    setSelectedQuestionForPreview(question);
+    setShowPreviewModal(true);
+  };
+
+  const handleClosePreviewModal = () => {
+    setShowPreviewModal(false);
+    setSelectedQuestionForPreview(null);
+  };
+
   const mcqQuestions = questions.filter(q => q.question_type === QuestionType.MCQ);
   const longAnswerQuestions = questions.filter(q => q.question_type === QuestionType.LONG_ANSWER);
 
@@ -583,6 +597,17 @@ const QuestionList = () => {
                     title="Assign Tags"
                   >
                     <TagIcon className="h-3 w-3" />
+                  </Button>
+
+                  {/* Preview */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleQuestionPreview(question)}
+                    className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 rounded-lg transition-all duration-200"
+                    title="Preview Question"
+                  >
+                    <Eye className="h-3 w-3" />
                   </Button>
 
                   {/* Edit */}
@@ -867,6 +892,15 @@ const QuestionList = () => {
                 title="Assign Tags"
             >
               <TagIcon className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleQuestionPreview(question)}
+                className="border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 rounded-lg transition-all duration-200 hover:scale-105 hover:shadow-md"
+                title="Preview Question"
+            >
+              <Eye className="h-3 w-3" />
             </Button>
             <Button
               variant="outline"
@@ -1779,6 +1813,241 @@ const QuestionList = () => {
               Close
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Question Preview Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={handleClosePreviewModal}>
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Question Preview
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedQuestionForPreview && (
+            <div className="space-y-6 mt-6">
+              {/* Question Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedQuestionForPreview.title}
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      Admin Preview - All correct answers and explanations are visible
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge className={`${getQuestionTypeDisplay(selectedQuestionForPreview.question_type).color} border-0 font-medium px-3 py-1.5`}>
+                      {getQuestionTypeDisplay(selectedQuestionForPreview.question_type).label}
+                    </Badge>
+                    {selectedQuestionForPreview.scoring_type && (
+                      <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                        {getScoringTypeDisplay(selectedQuestionForPreview.scoring_type)?.label}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Question Content */}
+              <Card className="border-0 shadow-lg">
+                <CardContent className="p-8">
+                  <div className="space-y-6">
+                    {/* Question Description */}
+                    <div>
+                      <div className="prose prose-gray max-w-none">
+                        <p className="text-gray-700 text-lg leading-relaxed">
+                          {selectedQuestionForPreview.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Question Image */}
+                    {selectedQuestionForPreview.image_url && (
+                      <div className="flex justify-center">
+                        <img
+                          src={
+                            selectedQuestionForPreview.image_url.startsWith('http') 
+                              ? selectedQuestionForPreview.image_url 
+                              : `${API_SERVER_URL}${selectedQuestionForPreview.image_url}`
+                          }
+                          alt="Question image"
+                          className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                          style={{ maxHeight: '400px' }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Options (for MCQ) */}
+                    {selectedQuestionForPreview.question_type === QuestionType.MCQ && (
+                      <div className="space-y-4">
+                        {[
+                          { key: 'A', text: selectedQuestionForPreview.option_a },
+                          { key: 'B', text: selectedQuestionForPreview.option_b },
+                          { key: 'C', text: selectedQuestionForPreview.option_c },
+                          { key: 'D', text: selectedQuestionForPreview.option_d }
+                        ].filter(option => option.text).map((option) => {
+                          const isCorrect = selectedQuestionForPreview.correct_options?.includes(option.key);
+                          
+                          return (
+                            <div 
+                              key={option.key} 
+                              className={`p-4 border-2 rounded-xl transition-all duration-200 ${
+                                isCorrect 
+                                  ? 'border-green-500 bg-green-50' 
+                                  : 'border-gray-200 bg-white'
+                              }`}
+                            >
+                              <div className="flex items-start space-x-4">
+                                <div className={`flex-shrink-0 w-8 h-8 border-2 rounded-full flex items-center justify-center font-bold text-sm ${
+                                  isCorrect 
+                                    ? 'border-green-500 bg-green-500 text-white'
+                                    : 'border-gray-300 text-gray-600'
+                                }`}>
+                                  {isCorrect ? (
+                                    <CheckCircle2 className="h-5 w-5" />
+                                  ) : (
+                                    option.key
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <Label className={`text-base leading-relaxed ${
+                                    isCorrect ? 'text-green-900 font-medium' : 'text-gray-900'
+                                  }`}>
+                                    <span className="font-semibold mr-2">{option.key})</span>
+                                    {option.text}
+                                  </Label>
+                                  {isCorrect && (
+                                    <div className="mt-2">
+                                      <Badge className="bg-green-100 text-green-800 border-green-200">
+                                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                                        Correct Answer
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Long Answer Template */}
+                    {selectedQuestionForPreview.question_type === QuestionType.LONG_ANSWER && (
+                      <div className="space-y-4">
+                        <div className="p-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <FileText className="h-5 w-5 text-gray-500" />
+                            <span className="font-medium text-gray-700">Long Answer Response Area</span>
+                          </div>
+                          <div className="bg-white rounded-lg border p-4 min-h-[120px] text-gray-500">
+                            Students would write their detailed answer here...
+                            <br />
+                            <span className="text-sm">
+                              Maximum words: {selectedQuestionForPreview.max_word_count || 'Unlimited'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-2">
+                            Scoring method: {getScoringTypeDisplay(selectedQuestionForPreview.scoring_type)?.label || 'Manual'}
+                          </p>
+                        </div>
+
+                        {/* Sample Answer */}
+                        {selectedQuestionForPreview.sample_answer && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                            <div className="flex items-center space-x-2 mb-3">
+                              <Award className="h-5 w-5 text-blue-600" />
+                              <span className="font-bold text-blue-900">Sample Answer</span>
+                            </div>
+                            <div className="prose prose-blue max-w-none">
+                              <p className="text-blue-800 leading-relaxed">
+                                {selectedQuestionForPreview.sample_answer}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Keywords for Scoring */}
+                        {selectedQuestionForPreview.keywords_for_scoring && selectedQuestionForPreview.keywords_for_scoring.length > 0 && (
+                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                            <div className="flex items-center space-x-2 mb-3">
+                              <Target className="h-5 w-5 text-purple-600" />
+                              <span className="font-bold text-purple-900">Keywords for Scoring</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedQuestionForPreview.keywords_for_scoring.map((keyword, index) => (
+                                <Badge key={index} className="bg-purple-100 text-purple-800 border-purple-200">
+                                  {keyword}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Correct Answer Section (for MCQ) */}
+                    {selectedQuestionForPreview.question_type === QuestionType.MCQ && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          <span className="font-bold text-green-900">Correct Answer(s)</span>
+                        </div>
+                        <div className="prose prose-green max-w-none">
+                          <p className="text-green-800 leading-relaxed">
+                            {selectedQuestionForPreview.correct_options?.map(opt => `Option ${opt}`).join(', ') || 'No correct answer specified'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Explanation Section */}
+                    {selectedQuestionForPreview.explanation && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Info className="h-5 w-5 text-blue-600" />
+                          <span className="font-bold text-blue-900">Explanation</span>
+                        </div>
+                        <div className="prose prose-blue max-w-none">
+                          <p className="text-blue-800 leading-relaxed">
+                            {selectedQuestionForPreview.explanation}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tags Section */}
+                    {selectedQuestionForPreview.tags && selectedQuestionForPreview.tags.length > 0 && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <TagIcon className="h-5 w-5 text-gray-600" />
+                          <span className="font-bold text-gray-900">Tags</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedQuestionForPreview.tags.map((tag) => (
+                            <Badge 
+                              key={tag.id}
+                              style={{ 
+                                backgroundColor: tag.color + '20', 
+                                color: tag.color,
+                                borderColor: tag.color + '40'
+                              }}
+                              className="border"
+                            >
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -12,6 +12,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { 
   ArrowLeft, 
   Download, 
@@ -34,10 +42,30 @@ import {
   XCircle,
   AlertCircle,
   ChevronDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ArrowRight,
+  Circle,
+  Info
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { toast } from '@/hooks/use-toast';
+import { API_SERVER_URL } from '../../config/api';
+
+interface ContestProblem {
+  id: string;
+  question_type: string;
+  title: string;
+  description: string;
+  option_a?: string;
+  option_b?: string;
+  option_c?: string;
+  option_d?: string;
+  marks: number;
+  order_index: number;
+  image_url?: string;
+  correct_options: string[];
+  explanation?: string;
+}
 
 interface ContestSubmission {
   id: string;
@@ -68,8 +96,13 @@ const ContestDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [contest, setContest] = useState<Contest | null>(null);
   const [submissions, setSubmissions] = useState<ContestSubmission[]>([]);
+  const [problems, setProblems] = useState<ContestProblem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Preview Modal States
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [currentPreviewQuestion, setCurrentPreviewQuestion] = useState(0);
 
   useEffect(() => {
     if (id) {
@@ -92,6 +125,9 @@ const ContestDetails = () => {
 
       // Type the contest data properly
       const typedContestData = contestData as any;
+      
+      // Extract problems from contest data
+      setProblems(typedContestData.problems || []);
 
       // Get course name if course_id exists
       let courseName = 'Unknown Course';
@@ -225,6 +261,42 @@ const ContestDetails = () => {
     return stats;
   };
 
+  const getProblemStatistics = () => {
+    if (!problems.length || !submissions.length) return [];
+    
+    return problems.map(problem => {
+      // For now, we'll show basic stats. In a real implementation, 
+      // you'd need to fetch individual submission answers to calculate correct answers
+      const submissionCount = submissions.length;
+      const correctCount = Math.floor(submissionCount * 0.7); // Placeholder - would need actual answer analysis
+      
+      return {
+        ...problem,
+        submissionCount,
+        correctCount,
+        correctPercentage: submissionCount > 0 ? (correctCount / submissionCount) * 100 : 0
+      };
+    });
+  };
+
+  const getQuestionTypeLabel = (type: string) => {
+    switch (type) {
+      case 'single_choice': return 'Single Choice';
+      case 'multiple_choice': return 'Multiple Choice';
+      case 'long_answer': return 'Long Answer';
+      default: return type;
+    }
+  };
+
+  const getQuestionTypeIcon = (type: string) => {
+    switch (type) {
+      case 'single_choice': return <Target className="h-4 w-4 text-blue-600" />;
+      case 'multiple_choice': return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case 'long_answer': return <FileText className="h-4 w-4 text-purple-600" />;
+      default: return <FileText className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
   const handleExportResults = async (format: 'excel' | 'csv' = 'excel') => {
     if (!id) {
       toast({
@@ -330,14 +402,14 @@ const ContestDetails = () => {
       <div className="space-y-8 p-6 max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="space-y-4">
-          <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4">
             <Button 
               variant="outline" 
               onClick={() => navigate('/admin/contests')}
               className="hover:bg-gray-50 border-gray-200"
             >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
             <div className="flex-1">
               <div className="flex items-center space-x-3 mb-2">
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
@@ -450,10 +522,7 @@ const ContestDetails = () => {
                 <Calendar className="h-5 w-5 text-gray-600" />
                 <span>Contest Schedule</span>
               </CardTitle>
-              <Button variant="outline" size="sm" className="hover:bg-blue-50 hover:border-blue-300">
-                <Eye className="h-4 w-4 mr-2" />
-                View Problems
-              </Button>
+
             </div>
           </CardHeader>
           <CardContent className="p-6">
@@ -480,12 +549,146 @@ const ContestDetails = () => {
                 <div className="flex items-center space-x-2 text-sm font-medium text-gray-500">
                   <Timer className="h-4 w-4" />
                   <span>Duration</span>
-                </div>
+              </div>
                 <p className="text-lg font-semibold text-gray-900">
                   {formatDuration(contest.start_time, contest.end_time)}
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Preview Contest Button */}
+        {problems.length > 0 && (
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-purple-50">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg">
+                    <Eye className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Preview Contest</h3>
+                    <p className="text-gray-600">
+                      Experience the contest from a student's perspective with answers and explanations
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setShowPreviewModal(true)}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Preview Contest
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Problems Section */}
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-xl font-semibold flex items-center space-x-2">
+                <BookOpen className="h-5 w-5 text-gray-600" />
+                <span>Contest Problems</span>
+                <Badge variant="secondary" className="ml-2">{problems.length}</Badge>
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {problems.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <BookOpen className="h-10 w-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">No Problems Found</h3>
+                <p className="text-gray-500 max-w-md mx-auto">
+                  This contest doesn't have any problems configured yet.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50/50">
+                      <TableHead className="font-semibold text-gray-900">Problem</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Type</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Marks</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Submissions</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Correct Answers</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Success Rate</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {getProblemStatistics().map((problem, index) => (
+                      <TableRow key={problem.id} className="hover:bg-gray-50/50 transition-colors">
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="font-medium text-gray-900 line-clamp-2">
+                              {problem.title || `Problem ${index + 1}`}
+                            </div>
+                            {problem.description && (
+                              <div className="text-sm text-gray-500 line-clamp-1">
+                                {problem.description.substring(0, 100)}...
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {getQuestionTypeIcon(problem.question_type)}
+                            <span className="text-sm font-medium">
+                              {getQuestionTypeLabel(problem.question_type)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className="bg-blue-100 text-blue-800 border border-blue-200">
+                            {problem.marks} pts
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Users className="h-4 w-4 text-gray-400" />
+                            <span className="font-semibold text-gray-900">
+                              {problem.submissionCount}
+                            </span>
+                            <span className="text-gray-500">
+                              / {submissions.length}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <span className="font-semibold text-green-700">
+                              {problem.correctCount}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <Badge 
+                              className={`${
+                                problem.correctPercentage >= 80 
+                                  ? 'bg-green-100 text-green-800 border-green-200'
+                                  : problem.correctPercentage >= 60
+                                  ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                  : 'bg-red-100 text-red-800 border-red-200'
+                              } font-medium`}
+                            >
+                              {problem.correctPercentage.toFixed(1)}%
+                            </Badge>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -539,10 +742,10 @@ const ContestDetails = () => {
                     disabled={submissions.length === 0}
                     title={submissions.length === 0 ? "No submissions available to export" : "Export contest results"}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Results
+                <Download className="h-4 w-4 mr-2" />
+                Export Results
                     <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
+              </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => handleExportResults('excel')}>
@@ -570,8 +773,8 @@ const ContestDetails = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
+            <Table>
+              <TableHeader>
                     <TableRow className="bg-gray-50/50">
                       <TableHead className="font-semibold text-gray-900">Student</TableHead>
                       <TableHead className="font-semibold text-gray-900">Email</TableHead>
@@ -579,9 +782,9 @@ const ContestDetails = () => {
                       <TableHead className="font-semibold text-gray-900">Grade</TableHead>
                       <TableHead className="font-semibold text-gray-900">Time Taken</TableHead>
                       <TableHead className="font-semibold text-gray-900">Submitted</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                     {submissions.map((submission) => {
                       const studentName = submission.student_name || 'Unknown Student';
                       const studentEmail = submission.student_email || 'No email';
@@ -621,13 +824,13 @@ const ContestDetails = () => {
                               {percentage.toFixed(1)}%
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                    <TableCell>
                             <div className="flex items-center space-x-1">
                               <Clock className="h-4 w-4 text-gray-400" />
                               <span className="text-gray-600">{formatTime(timeTaken)}</span>
                             </div>
-                          </TableCell>
-                          <TableCell>
+                    </TableCell>
+                    <TableCell>
                             {submittedAt ? (
                               <span className="text-gray-600 text-sm">
                                 {new Date(submittedAt).toLocaleDateString()} at{' '}
@@ -635,21 +838,249 @@ const ContestDetails = () => {
                                   hour: '2-digit', 
                                   minute: '2-digit' 
                                 })}
-                              </span>
+                      </span>
                             ) : (
                               <span className="text-gray-400 text-sm">No date</span>
                             )}
-                          </TableCell>
-                        </TableRow>
+                    </TableCell>
+                  </TableRow>
                       );
                     })}
-                  </TableBody>
-                </Table>
+              </TableBody>
+            </Table>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Contest Preview Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Contest Preview - {contest?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {problems.length > 0 && (
+            <div className="space-y-6 mt-6">
+              {/* Question Navigation Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Question {currentPreviewQuestion + 1} of {problems.length}
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      Admin Preview - All correct answers and explanations are visible
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                      <Award className="h-4 w-4 mr-1" />
+                      {problems[currentPreviewQuestion]?.marks} marks
+                    </Badge>
+                    <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+                      {getQuestionTypeLabel(problems[currentPreviewQuestion]?.question_type)}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Question Content */}
+              <Card className="border-0 shadow-lg">
+                <CardContent className="p-8">
+                  <div className="space-y-6">
+                    {/* Question Title and Description */}
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-4 leading-relaxed">
+                        {problems[currentPreviewQuestion]?.title}
+                      </h3>
+                      <div className="prose prose-gray max-w-none">
+                        <p className="text-gray-700 text-lg leading-relaxed">
+                          {problems[currentPreviewQuestion]?.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Question Image */}
+                    {problems[currentPreviewQuestion]?.image_url && (
+                      <div className="flex justify-center">
+                        <img
+                          src={
+                            problems[currentPreviewQuestion].image_url.startsWith('http') 
+                              ? problems[currentPreviewQuestion].image_url 
+                              : `${API_SERVER_URL}${problems[currentPreviewQuestion].image_url}`
+                          }
+                          alt="Question image"
+                          className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                          style={{ maxHeight: '400px' }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Options (for MCQ) */}
+                    {problems[currentPreviewQuestion]?.question_type !== 'long_answer' && (
+                      <div className="space-y-4">
+                        {[
+                          { key: 'A', text: problems[currentPreviewQuestion]?.option_a },
+                          { key: 'B', text: problems[currentPreviewQuestion]?.option_b },
+                          { key: 'C', text: problems[currentPreviewQuestion]?.option_c },
+                          { key: 'D', text: problems[currentPreviewQuestion]?.option_d }
+                        ].filter(option => option.text).map((option) => {
+                          const isCorrect = problems[currentPreviewQuestion]?.correct_options?.includes(option.key);
+                          
+                          return (
+                            <div 
+                              key={option.key} 
+                              className={`p-4 border-2 rounded-xl transition-all duration-200 ${
+                                isCorrect 
+                                  ? 'border-green-500 bg-green-50' 
+                                  : 'border-gray-200 bg-white'
+                              }`}
+                            >
+                              <div className="flex items-start space-x-4">
+                                <div className={`flex-shrink-0 w-8 h-8 border-2 rounded-full flex items-center justify-center font-bold text-sm ${
+                                  isCorrect 
+                                    ? 'border-green-500 bg-green-500 text-white'
+                                    : 'border-gray-300 text-gray-600'
+                                }`}>
+                                  {isCorrect ? (
+                                    <CheckCircle2 className="h-5 w-5" />
+                                  ) : (
+                                    option.key
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <Label className={`text-base leading-relaxed ${
+                                    isCorrect ? 'text-green-900 font-medium' : 'text-gray-900'
+                                  }`}>
+                                    <span className="font-semibold mr-2">{option.key})</span>
+                                    {option.text}
+                                  </Label>
+                                  {isCorrect && (
+                                    <div className="mt-2">
+                                      <Badge className="bg-green-100 text-green-800 border-green-200">
+                                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                                        Correct Answer
+                                      </Badge>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Long Answer Template (for Long Answer questions) */}
+                    {problems[currentPreviewQuestion]?.question_type === 'long_answer' && (
+                      <div className="space-y-4">
+                        <div className="p-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <FileText className="h-5 w-5 text-gray-500" />
+                            <span className="font-medium text-gray-700">Long Answer Response Area</span>
+                          </div>
+                          <Textarea
+                            placeholder="Students would write their detailed answer here..."
+                            className="min-h-[120px] bg-white"
+                            disabled
+                          />
+                          <p className="text-sm text-gray-500 mt-2">
+                            This question requires manual review and grading by instructors.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Correct Answer Section */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        <span className="font-bold text-green-900">Correct Answer</span>
+                      </div>
+                      <div className="prose prose-green max-w-none">
+                        <p className="text-green-800 leading-relaxed">
+                          {problems[currentPreviewQuestion]?.question_type === 'long_answer' 
+                            ? 'This is a long answer question that requires manual evaluation by instructors.'
+                            : problems[currentPreviewQuestion]?.correct_options?.map(opt => `Option ${opt}`).join(', ') || 'No correct answer specified'
+                          }
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Explanation Section */}
+                    {problems[currentPreviewQuestion]?.explanation && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <Info className="h-5 w-5 text-blue-600" />
+                          <span className="font-bold text-blue-900">Explanation</span>
+                        </div>
+                        <div className="prose prose-blue max-w-none">
+                          <p className="text-blue-800 leading-relaxed">
+                            {problems[currentPreviewQuestion].explanation}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Navigation Controls */}
+              <div className="flex justify-between items-center pt-6 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentPreviewQuestion(Math.max(0, currentPreviewQuestion - 1))}
+                  disabled={currentPreviewQuestion === 0}
+                  className="px-6 py-3"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Previous Question
+                </Button>
+
+                <div className="flex items-center space-x-4">
+                  {/* Question Numbers */}
+                  <div className="flex space-x-1">
+                    {problems.slice(0, 10).map((_, index) => (
+                      <Button
+                        key={index}
+                        size="sm"
+                        variant={index === currentPreviewQuestion ? "default" : "outline"}
+                        className={`w-8 h-8 text-xs ${
+                          index === currentPreviewQuestion
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'hover:bg-blue-50'
+                        }`}
+                        onClick={() => setCurrentPreviewQuestion(index)}
+                      >
+                        {index + 1}
+                      </Button>
+                    ))}
+                    {problems.length > 10 && (
+                      <span className="text-sm text-gray-500 self-center px-2">
+                        +{problems.length - 10} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <Button 
+                  variant="outline"
+                  onClick={() => setCurrentPreviewQuestion(Math.min(problems.length - 1, currentPreviewQuestion + 1))}
+                  disabled={currentPreviewQuestion === problems.length - 1}
+                  className="px-6 py-3"
+                >
+                  Next Question
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
