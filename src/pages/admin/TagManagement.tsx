@@ -51,7 +51,25 @@ const TagManagement = () => {
 
   useEffect(() => {
     loadTags();
+    loadAllQuestions(); // Load all questions by default
   }, []);
+
+  const loadAllQuestions = async () => {
+    try {
+      setLoadingQuestions(true);
+      const questionData = await apiService.getQuestions(0, 1000) as QuestionResponse[];
+      setQuestions(questionData);
+    } catch (error: any) {
+      toast({
+        title: "Error Loading Questions",
+        description: error.message || "Failed to load questions.",
+        variant: "destructive"
+      });
+      setQuestions([]);
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
 
   const loadTags = async () => {
     try {
@@ -63,9 +81,9 @@ const TagManagement = () => {
       if (searchQuery && response.length > 0) {
         loadQuestionsForTags(response);
         setSelectedTag(null); // Clear selected tag when searching
-      } else if (!searchQuery) {
-        setQuestions([]); // Clear questions when no search
-        setSelectedTag(null); // Clear selected tag
+      } else if (!searchQuery && !selectedTag) {
+        // Load all questions when no search and no tag selected
+        loadAllQuestions();
       }
     } catch (error: any) {
       toast({
@@ -117,9 +135,9 @@ const TagManagement = () => {
 
   const handleTagClick = (tag: TagData) => {
     if (selectedTag?.id === tag.id) {
-      // If clicking the same tag, deselect it
+      // If clicking the same tag, deselect it and show all questions
       setSelectedTag(null);
-      setQuestions([]);
+      loadAllQuestions();
     } else {
       // Load questions for the clicked tag
       loadQuestionsForSpecificTag(tag);
@@ -752,8 +770,7 @@ const TagManagement = () => {
           </div>
         )}
 
-        {/* MCQ Questions Table - Show when there's a search query and tags found OR when a specific tag is selected */}
-        {((searchQuery && sortedTags.length > 0) || selectedTag) && (
+        {/* Questions Table - Always show */}
           <Card className="overflow-hidden border-0 shadow-xl">
             <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b">
               <div className="flex items-center justify-between">
@@ -770,12 +787,14 @@ const TagManagement = () => {
                           {selectedTag.name}
                         </Badge>
                       </>
-                    ) : (
+                    ) : searchQuery && sortedTags.length > 0 ? (
                       'Questions with Selected Tags'
+                    ) : (
+                      'All Questions'
                     )}
                   </CardTitle>
                   <p className="text-gray-600 text-sm mt-1">
-                    {loadingQuestions ? 'Loading questions...' : `Found ${questions.length} question${questions.length !== 1 ? 's' : ''} ${selectedTag ? `with tag "${selectedTag.name}"` : 'with the selected tags'}`}
+                    {loadingQuestions ? 'Loading questions...' : `Found ${questions.length} question${questions.length !== 1 ? 's' : ''} ${selectedTag ? `with tag "${selectedTag.name}"` : searchQuery && sortedTags.length > 0 ? 'with the selected tags' : 'in the system'}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -784,7 +803,7 @@ const TagManagement = () => {
                       variant="outline" 
                       onClick={() => {
                         setSelectedTag(null);
-                        setQuestions([]);
+                        loadAllQuestions(); // Load all questions when clearing selection
                       }}
                       className="hover:bg-red-50 hover:border-red-300 text-red-600"
                     >
@@ -824,7 +843,9 @@ const TagManagement = () => {
                   <p className="text-gray-500">
                     {selectedTag 
                       ? `No questions are tagged with "${selectedTag.name}".`
-                      : 'No questions are tagged with the selected tags.'
+                      : searchQuery && sortedTags.length > 0
+                      ? 'No questions are tagged with the selected tags.'
+                      : 'No questions available in the system.'
                     }
                   </p>
                 </div>
@@ -1007,7 +1028,6 @@ const TagManagement = () => {
               )}
             </CardContent>
           </Card>
-        )}
 
         {/* Edit Dialog */}
         <Dialog open={!!editingTag} onOpenChange={(open) => !open && closeDialog()}>
