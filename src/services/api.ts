@@ -949,6 +949,71 @@ class ApiService {
     
     return this.handleResponse(response);
   }
+
+  // Submission Review endpoints
+  async getPendingReviews(courseId?: string, contestId?: string, scoringMethod?: string) {
+    const params = new URLSearchParams();
+    if (courseId) params.append('course_id', courseId);
+    if (contestId) params.append('contest_id', contestId);
+    if (scoringMethod) params.append('scoring_method', scoringMethod);
+    
+    const response = await fetch(`${API_BASE_URL}/submission-review/pending?${params}`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async getSubmissionForReview(submissionId: string) {
+    const response = await fetch(`${API_BASE_URL}/submission-review/submission/${submissionId}`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async updateSubmissionReview(submissionId: string, reviewData: {
+    problem_reviews: Array<{
+      problem_id: string;
+      new_score: number;
+      feedback?: string;
+    }>;
+    general_feedback?: string;
+  }) {
+    const response = await fetch(`${API_BASE_URL}/submission-review/submission/${submissionId}/review`, {
+      method: 'PUT',
+      headers: this.getHeaders(),
+      body: JSON.stringify(reviewData),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async rescoreWithKeywords(submissionId: string, problemIds?: string[]) {
+    const params = new URLSearchParams();
+    if (problemIds) {
+      problemIds.forEach(id => params.append('problem_ids', id));
+    }
+    
+    const response = await fetch(`${API_BASE_URL}/submission-review/keyword-rescore/${submissionId}?${params}`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
+
+  async getReviewAnalytics(courseId?: string, contestId?: string) {
+    const params = new URLSearchParams();
+    if (courseId) params.append('course_id', courseId);
+    if (contestId) params.append('contest_id', contestId);
+    
+    const response = await fetch(`${API_BASE_URL}/submission-review/analytics?${params}`, {
+      headers: this.getHeaders(),
+    });
+    
+    return this.handleResponse(response);
+  }
 }
 
 export const apiService = new ApiService(); 

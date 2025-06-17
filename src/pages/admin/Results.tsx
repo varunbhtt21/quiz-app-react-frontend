@@ -6,9 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, FileSpreadsheet, BarChart3, TrendingUp, Users, Award, Calendar, Target, RefreshCw, Filter, Search, Trophy, CheckCircle, Clock } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Download, FileSpreadsheet, BarChart3, TrendingUp, Users, Award, Calendar, Target, RefreshCw, Filter, Search, Trophy, CheckCircle, Clock, FileText, Brain } from 'lucide-react';
 import { apiService } from '../../services/api';
 import { toast } from '@/hooks/use-toast';
+import ReviewDashboard from '../../components/admin/ReviewDashboard';
 
 interface Contest {
   id: string;
@@ -34,6 +36,7 @@ const Results = () => {
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingResults, setLoadingResults] = useState(false);
+  const [activeTab, setActiveTab] = useState('results');
 
   useEffect(() => {
     loadContests();
@@ -267,14 +270,26 @@ const Results = () => {
         </Card>
 
         {selectedContest && (
-          <>
-            {loadingResults ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600"></div>
-              </div>
-            ) : (
-              <>
-                {/* Enhanced Statistics Cards */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="results" className="flex items-center space-x-2">
+                <BarChart3 className="h-4 w-4" />
+                <span>Results & Analytics</span>
+              </TabsTrigger>
+              <TabsTrigger value="review" className="flex items-center space-x-2">
+                <FileText className="h-4 w-4" />
+                <span>Manual Review</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="results" className="space-y-8">
+              {loadingResults ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600"></div>
+                </div>
+              ) : (
+                <>
+                  {/* Enhanced Statistics Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 shadow-md">
                     <CardContent className="p-6">
@@ -576,9 +591,17 @@ const Results = () => {
                     </Card>
                   </div>
                 </div>
-              </>
-            )}
-          </>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="review" className="space-y-6">
+              <ReviewDashboard 
+                selectedContestId={selectedContest}
+                onRefreshResults={loadContestResults}
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </Layout>
