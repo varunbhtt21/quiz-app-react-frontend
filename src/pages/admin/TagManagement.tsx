@@ -12,11 +12,11 @@ import {
   Tag, Plus, Search, Edit, Trash2, Palette, Users, 
   Filter, SortAsc, SortDesc, Eye, MoreHorizontal, Sparkles,
   TrendingUp, Hash, Calendar, Clock, FileText, ChevronDown, ArrowUpDown, Layers, Copy, RefreshCw,
-  Brain, Camera, CheckCircle, ImageIcon, ExternalLink, X
+  Brain, Camera, CheckCircle, ImageIcon, ExternalLink, X, MessageSquare
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import Layout from '../../components/common/Layout';
-import { apiService } from '../../services/api';
+import { apiService, QuestionResponse, QuestionType, ScoringType } from '../../services/api';
 import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -28,35 +28,18 @@ interface TagData {
   created_by: string;
   created_at: string;
   updated_at: string;
-  mcq_count?: number;
-}
-
-interface MCQProblem {
-  id: string;
-  title: string;
-  description: string;
-  option_a: string;
-  option_b: string;
-  option_c: string;
-  option_d: string;
-  correct_options: string[];
-  explanation?: string;
-  image_url?: string;
-  created_at: string;
-  updated_at: string;
-  tags?: Array<{ id: string; name: string; color: string }>;
-  needs_tags?: boolean;
+  question_count?: number; // Updated from mcq_count to be inclusive
 }
 
 const TagManagement = () => {
   const navigate = useNavigate();
   const [tags, setTags] = useState<TagData[]>([]);
-  const [mcqs, setMcqs] = useState<MCQProblem[]>([]);
+  const [questions, setQuestions] = useState<QuestionResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMcqs, setLoadingMcqs] = useState(false);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<TagData | null>(null);
-  const [sortBy, setSortBy] = useState<'name' | 'created_at' | 'mcq_count'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'created_at' | 'question_count'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<TagData | null>(null);
@@ -76,12 +59,12 @@ const TagManagement = () => {
       const response = await apiService.getTags(0, 1000, searchQuery) as TagData[];
       setTags(response);
       
-      // Load MCQs for the filtered tags when there's a search query
+      // Load questions for the filtered tags when there's a search query
       if (searchQuery && response.length > 0) {
-        loadMCQsForTags(response);
+        loadQuestionsForTags(response);
         setSelectedTag(null); // Clear selected tag when searching
       } else if (!searchQuery) {
-        setMcqs([]); // Clear MCQs when no search
+        setQuestions([]); // Clear questions when no search
         setSelectedTag(null); // Clear selected tag
       }
     } catch (error: any) {
@@ -95,29 +78,29 @@ const TagManagement = () => {
     }
   };
 
-  const loadMCQsForTags = async (filteredTags: TagData[]) => {
+  const loadQuestionsForTags = async (filteredTags: TagData[]) => {
     try {
-      setLoadingMcqs(true);
+      setLoadingQuestions(true);
       const tagIds = filteredTags.map(tag => tag.id).join(',');
-      const mcqData = await apiService.getMCQs(0, 1000, undefined, tagIds) as MCQProblem[];
-      setMcqs(mcqData);
+      const questionData = await apiService.getQuestions(0, 1000, undefined, tagIds) as QuestionResponse[];
+      setQuestions(questionData);
     } catch (error: any) {
       toast({
         title: "Error Loading Questions",
         description: error.message || "Failed to load questions for these tags.",
         variant: "destructive"
       });
-      setMcqs([]);
+      setQuestions([]);
     } finally {
-      setLoadingMcqs(false);
+      setLoadingQuestions(false);
     }
   };
 
-  const loadMCQsForSpecificTag = async (tag: TagData) => {
+  const loadQuestionsForSpecificTag = async (tag: TagData) => {
     try {
-      setLoadingMcqs(true);
-      const mcqData = await apiService.getMCQs(0, 1000, undefined, tag.id) as MCQProblem[];
-      setMcqs(mcqData);
+      setLoadingQuestions(true);
+      const questionData = await apiService.getQuestions(0, 1000, undefined, tag.id) as QuestionResponse[];
+      setQuestions(questionData);
       setSelectedTag(tag);
     } catch (error: any) {
       toast({
@@ -125,10 +108,10 @@ const TagManagement = () => {
         description: error.message || `Failed to load questions for tag "${tag.name}".`,
         variant: "destructive"
       });
-      setMcqs([]);
+      setQuestions([]);
       setSelectedTag(null);
     } finally {
-      setLoadingMcqs(false);
+      setLoadingQuestions(false);
     }
   };
 
@@ -136,10 +119,10 @@ const TagManagement = () => {
     if (selectedTag?.id === tag.id) {
       // If clicking the same tag, deselect it
       setSelectedTag(null);
-      setMcqs([]);
+      setQuestions([]);
     } else {
       // Load questions for the clicked tag
-      loadMCQsForSpecificTag(tag);
+      loadQuestionsForSpecificTag(tag);
     }
   };
 
@@ -150,6 +133,8 @@ const TagManagement = () => {
 
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
+
+
 
   const handleCreateTag = async () => {
     if (!newTag.name.trim()) {
@@ -268,20 +253,33 @@ const TagManagement = () => {
     return Array.isArray(correctOptions) ? correctOptions.length : 1;
   };
 
-  const handleDeleteMCQ = async (mcqId: string, mcqTitle: string) => {
-    if (!confirm(`Are you sure you want to delete "${mcqTitle}"?`)) {
+  const getScoringTypeDisplay = (scoringType?: ScoringType) => {
+    switch (scoringType) {
+      case ScoringType.MANUAL:
+        return { label: 'Manual', color: 'bg-blue-50 text-blue-700 border-blue-200' };
+      case ScoringType.KEYWORD_BASED:
+        return { label: 'Keyword', color: 'bg-purple-50 text-purple-700 border-purple-200' };
+      case ScoringType.AUTO:
+        return { label: 'Auto', color: 'bg-green-50 text-green-700 border-green-200' };
+      default:
+        return { label: 'Manual', color: 'bg-blue-50 text-blue-700 border-blue-200' };
+    }
+  };
+
+  const handleDeleteQuestion = async (questionId: string, questionTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${questionTitle}"?`)) {
       return;
     }
 
     try {
-      await apiService.deleteMCQ(mcqId);
-      // Reload MCQs to reflect the deletion
+      await apiService.deleteQuestion(questionId);
+      // Reload questions to reflect the deletion
       if (searchQuery && tags.length > 0) {
-        loadMCQsForTags(tags);
+        loadQuestionsForTags(tags);
       }
       toast({
         title: "Success",
-        description: `Question "${mcqTitle}" has been deleted.`,
+        description: `Question "${questionTitle}" has been deleted.`,
       });
     } catch (error: any) {
       toast({
@@ -304,9 +302,9 @@ const TagManagement = () => {
         aValue = new Date(a.created_at);
         bValue = new Date(b.created_at);
         break;
-      case 'mcq_count':
-        aValue = a.mcq_count || 0;
-        bValue = b.mcq_count || 0;
+      case 'question_count':
+        aValue = a.question_count || 0;
+        bValue = b.question_count || 0;
         break;
       default:
         return 0;
@@ -335,9 +333,9 @@ const TagManagement = () => {
   ];
 
   const getTagStats = () => {
-    const totalMcqs = tags.reduce((sum, tag) => sum + (tag.mcq_count || 0), 0);
-    const avgMcqsPerTag = tags.length > 0 ? Math.round(totalMcqs / tags.length) : 0;
-    return { totalTags: tags.length, totalMcqs, avgMcqsPerTag };
+    const totalQuestions = tags.reduce((sum, tag) => sum + (tag.question_count || 0), 0);
+    const avgQuestionsPerTag = tags.length > 0 ? Math.round(totalQuestions / tags.length) : 0;
+    return { totalTags: tags.length, totalQuestions, avgQuestionsPerTag };
   };
 
   const stats = getTagStats();
@@ -376,9 +374,9 @@ const TagManagement = () => {
                   <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
                     <div className="flex items-center space-x-2 mb-2">
                       <FileText className="h-5 w-5 text-indigo-200" />
-                      <span className="text-sm text-indigo-200">Tagged MCQs</span>
+                      <span className="text-sm text-indigo-200">Tagged Questions</span>
                     </div>
-                    <div className="text-2xl font-bold">{stats.totalMcqs}</div>
+                    <div className="text-2xl font-bold">{stats.totalQuestions}</div>
                   </div>
                   
                   <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
@@ -386,7 +384,7 @@ const TagManagement = () => {
                       <TrendingUp className="h-5 w-5 text-indigo-200" />
                       <span className="text-sm text-indigo-200">Avg per Tag</span>
                     </div>
-                    <div className="text-2xl font-bold">{stats.avgMcqsPerTag}</div>
+                    <div className="text-2xl font-bold">{stats.avgQuestionsPerTag}</div>
                   </div>
                 </div>
               </div>
@@ -553,9 +551,9 @@ const TagManagement = () => {
                       <Calendar className="h-4 w-4 mr-2" />
                       Date Created
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortBy('mcq_count')}>
+                    <DropdownMenuItem onClick={() => setSortBy('question_count')}>
                       <FileText className="h-4 w-4 mr-2" />
-                      MCQ Count
+                      Question Count
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -691,10 +689,10 @@ const TagManagement = () => {
                                 </AlertDialogTitle>
                                 <AlertDialogDescription className="text-base leading-relaxed">
                                   Are you sure you want to permanently delete this tag? 
-                                  {tag.mcq_count && tag.mcq_count > 0 && (
+                                  {tag.question_count && tag.question_count > 0 && (
                                     <span className="block mt-2 p-3 bg-red-50 rounded-lg border border-red-200">
                                       <strong className="text-red-800">
-                                        ⚠️ This will remove the tag from {tag.mcq_count} MCQ{tag.mcq_count > 1 ? 's' : ''}.
+                                        ⚠️ This will remove the tag from {tag.question_count} question{tag.question_count > 1 ? 's' : ''}.
                                       </strong>
                                     </span>
                                   )}
@@ -730,7 +728,7 @@ const TagManagement = () => {
                     <div className="flex items-center justify-between mt-1.5 text-xs">
                       <div className="flex items-center gap-1 text-gray-500">
                         <FileText className="h-2.5 w-2.5" />
-                        <span className="font-medium text-xs">{tag.mcq_count || 0}</span>
+                        <span className="font-medium text-xs">{tag.question_count || 0}</span>
                       </div>
                       
                       <div className="text-xs text-gray-400">
@@ -777,7 +775,7 @@ const TagManagement = () => {
                     )}
                   </CardTitle>
                   <p className="text-gray-600 text-sm mt-1">
-                    {loadingMcqs ? 'Loading questions...' : `Found ${mcqs.length} question${mcqs.length !== 1 ? 's' : ''} ${selectedTag ? `with tag "${selectedTag.name}"` : 'with the selected tags'}`}
+                    {loadingQuestions ? 'Loading questions...' : `Found ${questions.length} question${questions.length !== 1 ? 's' : ''} ${selectedTag ? `with tag "${selectedTag.name}"` : 'with the selected tags'}`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -786,7 +784,7 @@ const TagManagement = () => {
                       variant="outline" 
                       onClick={() => {
                         setSelectedTag(null);
-                        setMcqs([]);
+                        setQuestions([]);
                       }}
                       className="hover:bg-red-50 hover:border-red-300 text-red-600"
                     >
@@ -807,7 +805,7 @@ const TagManagement = () => {
             </CardHeader>
             
             <CardContent className="p-0">
-              {loadingMcqs ? (
+              {loadingQuestions ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="relative">
                     <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -817,7 +815,7 @@ const TagManagement = () => {
                   </div>
                   <span className="ml-3 text-gray-600">Loading questions...</span>
                 </div>
-              ) : mcqs.length === 0 ? (
+              ) : questions.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Brain className="h-8 w-8 text-gray-400" />
@@ -844,23 +842,34 @@ const TagManagement = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {mcqs.map((mcq) => {
-                        const correctOptionsCount = getCorrectOptionsCount(mcq.correct_options);
+                      {questions.map((question) => {
+                        const correctOptionsCount = question.question_type === QuestionType.MCQ ? 
+                          getCorrectOptionsCount(question.correct_options || []) : 0;
+                        const scoringDisplay = question.question_type === QuestionType.LONG_ANSWER ? 
+                          getScoringTypeDisplay(question.scoring_type) : null;
                         
                         return (
-                          <TableRow key={mcq.id} className="hover:bg-gray-50">
+                          <TableRow key={question.id} className="hover:bg-gray-50">
                             <TableCell className="max-w-md">
                               <div className="space-y-1">
                                 <div className="flex items-center space-x-2">
-                                  <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <span className="text-xs font-bold text-indigo-600">Q</span>
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                    question.question_type === QuestionType.MCQ 
+                                      ? 'bg-indigo-100' 
+                                      : 'bg-purple-100'
+                                  }`}>
+                                    {question.question_type === QuestionType.MCQ ? (
+                                      <CheckCircle className="h-4 w-4 text-indigo-600" />
+                                    ) : (
+                                      <MessageSquare className="h-4 w-4 text-purple-600" />
+                                    )}
                                   </div>
-                                  <h4 className="font-semibold text-gray-900 text-sm line-clamp-1">{mcq.title}</h4>
+                                  <h4 className="font-semibold text-gray-900 text-sm line-clamp-1">{question.title}</h4>
                                 </div>
-                                <p className="text-gray-600 text-xs line-clamp-2 ml-10">{mcq.description}</p>
+                                <p className="text-gray-600 text-xs line-clamp-2 ml-10">{question.description}</p>
                                 <div className="ml-10">
                                   <Badge variant="outline" className="text-xs text-gray-500">
-                                    ID: {mcq.id.slice(0, 8)}...
+                                    ID: {question.id.slice(0, 8)}...
                                   </Badge>
                                 </div>
                               </div>
@@ -868,7 +877,7 @@ const TagManagement = () => {
                             
                             <TableCell>
                               <div className="flex items-center justify-center">
-                                {mcq.image_url && mcq.image_url.trim() ? (
+                                {question.image_url && question.image_url.trim() ? (
                                   <div className="flex items-center space-x-1 text-green-600">
                                     <ImageIcon className="h-4 w-4" />
                                     <span className="text-xs">Has Image</span>
@@ -883,31 +892,54 @@ const TagManagement = () => {
                             </TableCell>
                             
                             <TableCell>
-                              <Badge 
-                                variant="outline" 
-                                className={`text-xs ${
-                                  correctOptionsCount > 1 
-                                    ? 'border-orange-300 text-orange-700 bg-orange-50' 
-                                    : 'border-blue-300 text-blue-700 bg-blue-50'
-                                }`}
-                              >
-                                {correctOptionsCount > 1 ? 'Multiple Choice' : 'Single Choice'}
-                                <br />
-                                <span className="text-xs opacity-75">
-                                  {correctOptionsCount} correct option{correctOptionsCount > 1 ? 's' : ''}
-                                </span>
-                              </Badge>
+                              {question.question_type === QuestionType.MCQ ? (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${
+                                    correctOptionsCount > 1 
+                                      ? 'border-orange-300 text-orange-700 bg-orange-50' 
+                                      : 'border-blue-300 text-blue-700 bg-blue-50'
+                                  }`}
+                                >
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  {correctOptionsCount > 1 ? 'Multiple Choice' : 'Single Choice'}
+                                  <br />
+                                  <span className="text-xs opacity-75">
+                                    {correctOptionsCount} correct option{correctOptionsCount > 1 ? 's' : ''}
+                                  </span>
+                                </Badge>
+                              ) : (
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs border-purple-300 text-purple-700 bg-purple-50"
+                                >
+                                  <MessageSquare className="h-3 w-3 mr-1" />
+                                  Long Answer
+                                  <br />
+                                  <span className="text-xs opacity-75">
+                                    {question.max_word_count ? `Max ${question.max_word_count} words` : 'No limit'}
+                                  </span>
+                                </Badge>
+                              )}
+                              {scoringDisplay && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs mt-1 ${scoringDisplay.color}`}
+                                >
+                                  {scoringDisplay.label} Scoring
+                                </Badge>
+                              )}
                             </TableCell>
                             
                             <TableCell>
                               <div className="flex items-center space-x-1 text-gray-500">
                                 <Calendar className="h-3 w-3" />
                                 <span className="text-xs">
-                                  {new Date(mcq.created_at).toLocaleDateString()}
+                                  {new Date(question.created_at).toLocaleDateString()}
                                 </span>
                               </div>
                               <div className="text-xs text-gray-400 mt-1">
-                                {new Date(mcq.created_at).toLocaleTimeString()}
+                                {new Date(question.created_at).toLocaleTimeString()}
                               </div>
                             </TableCell>
                             
@@ -920,14 +952,14 @@ const TagManagement = () => {
                                   </Badge>
                                 </div>
                                 
-                                {mcq.explanation && (
+                                {question.explanation && (
                                   <Badge variant="outline" className="text-xs border-blue-300 text-blue-700 bg-blue-50">
                                     Has explanation
                                   </Badge>
                                 )}
                                 
                                 <div className="flex flex-wrap gap-1 max-w-32">
-                                  {mcq.tags?.map((tag) => (
+                                  {question.tags?.map((tag) => (
                                     <Badge
                                       key={tag.id}
                                       style={{ backgroundColor: tag.color, color: 'white' }}
@@ -937,7 +969,7 @@ const TagManagement = () => {
                                     </Badge>
                                   ))}
                                   
-                                  {mcq.needs_tags && (
+                                  {question.needs_tags && (
                                     <Badge variant="destructive" className="text-xs">
                                       Needs Tags
                                     </Badge>
@@ -951,7 +983,7 @@ const TagManagement = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => navigate(`/admin/mcq/edit/${mcq.id}`)}
+                                  onClick={() => navigate(`/admin/questions/edit/${question.id}`)}
                                   className="hover:bg-blue-50 hover:border-blue-300"
                                 >
                                   <Edit className="h-3 w-3" />
@@ -959,7 +991,7 @@ const TagManagement = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleDeleteMCQ(mcq.id, mcq.title)}
+                                  onClick={() => handleDeleteQuestion(question.id, question.title)}
                                   className="hover:bg-red-50 hover:border-red-300 text-red-600"
                                 >
                                   <Trash2 className="h-3 w-3" />
